@@ -1,0 +1,10 @@
+# Mission for set2 (rectangular boundary with inaccessible pocket)
+start 25 25 5
+height_min 0
+height_max 10
+xy_decimal_places 0
+height_decimal_places 0
+polygon_vertex 0   0
+polygon_vertex 150 0
+polygon_vertex 150 120
+polygon_vertex 0   120

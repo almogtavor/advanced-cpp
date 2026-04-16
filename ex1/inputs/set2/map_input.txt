@@ -1,0 +1,19 @@
+# Set 2: 15x12 building with an inaccessible 3x3 pocket sealed by walls.
+# The drone should map everything outside the pocket and leave the
+# interior of the pocket marked as unmapped.
+cell_size 10
+origin 0 0 0
+size 15 12 1
+layer 0
+###############
+#.............#
+#.............#
+#.....###.....#
+#.....#.#.....#
+#.....###.....#
+#.............#
+#.............#
+#.............#
+#.............#
+#.............#
+###############

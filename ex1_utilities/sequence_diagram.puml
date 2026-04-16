@@ -1,0 +1,81 @@
+@startuml
+skinparam dpi 200
+skinparam defaultFontSize 12
+skinparam sequenceMessageFontSize 12
+skinparam sequenceParticipantFontSize 13
+skinparam sequenceParticipantFontStyle bold
+skinparam sequenceGroupFontSize 11
+skinparam sequenceDividerFontSize 12
+skinparam shadowing false
+skinparam responseMessageBelowArrow true
+
+participant "main" as M
+participant "Simulator" as S
+participant "Drone" as D
+participant "PositionMock" as PM
+participant "LidarMock" as LM
+participant "MovementMock" as MM
+
+== Setup ==
+
+M -> S: load configs + truth
+M -> S: Simulator(truth, cfg, mission)
+M -> S: run()
+
+== Phase 1: Get Location ==
+
+S -> D: next_command()
+D --> S: GetLocation
+
+S -> PM: get_position()
+PM --> S: Position, Yaw
+
+S -> D: on_location(pos, yaw)
+note right of D: Mark current cell empty\nstate -> Scanning
+
+== Phase 2: Cardinal Scans (x6) ==
+
+loop 6 times (+X, -X, +Y, -Y, +Z, -Z)
+  S -> D: next_command()
+  D --> S: Scan(xy_offset, pitch_offset)
+
+  S -> LM: scan(xy, pitch)
+  note right of LM: Ray-cast against\ntruth grid
+  LM --> S: LidarFrame
+
+  S -> D: on_scan(frame)
+  note right of D: apply_full_scan_to_map()\nUpdate known BuildingMap
+end
+
+== Phase 3: BFS Planning + Movement ==
+
+loop until no more frontier cells
+  S -> D: next_command()
+  note right of D: bfs_to_frontier()\nplan_next_target()\nenqueue Rotate + Advance
+
+  loop for each move in path
+    D --> S: Rotate(dir, angle)
+    S -> MM: rotate(dir, angle)
+    MM --> S: Ok
+    S -> D: on_move_result(Ok)
+
+    D --> S: Advance(dist)
+    S -> MM: advance(dist)
+    MM --> S: Ok
+    S -> D: on_move_result(Ok)
+  end
+
+  note over S,D: Re-scan at new position\n(back to Phase 2)
+end
+
+== Phase 4: Scoring + Output ==
+
+S -> D: next_command()
+D --> S: Finished
+
+S -> S: score_against_truth()
+S --> M: SimulationReport
+
+M -> M: save map_output.txt\nprint results
+
+@enduml

@@ -1,0 +1,165 @@
+@startuml
+skinparam dpi 200
+skinparam defaultFontSize 12
+skinparam classAttributeFontSize 11
+skinparam classFontSize 14
+skinparam classFontStyle bold
+skinparam classStereotypeFontSize 10
+skinparam packageFontSize 13
+skinparam arrowFontSize 11
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 30
+
+skinparam class {
+  BackgroundColor<<interface>> #DCEAFF
+  BackgroundColor<<mock>> #D9FFD9
+  BackgroundColor<<data>> #FFE6E6
+  BackgroundColor<<util>> #ECE0FF
+  BackgroundColor<<sim>> #FFF0DD
+  BackgroundColor #FFFFCC
+}
+
+package "Sensor & Driver Interfaces" {
+  interface ILidarSensor <<interface>> {
+    + scan(xy_offset, pitch_offset): LidarFrame
+  }
+
+  interface IPositionSensor <<interface>> {
+    + get_position(): Position
+    + get_yaw(): Angle
+  }
+
+  interface IMovementDriver <<interface>> {
+    + rotate(dir, angle): MoveResult
+    + advance(length): MoveResult
+    + elevate(length): MoveResult
+  }
+}
+
+package "Mock Implementations" {
+  class LidarMock <<mock>> {
+    - world_: MockWorld&
+    + scan() override
+    - cast_ray()
+    - compute_grid_side()
+  }
+
+  class PositionMock <<mock>> {
+    - world_: MockWorld&
+    + get_position() override
+    + get_yaw() override
+  }
+
+  class MovementMock <<mock>> {
+    - world_: MockWorld&
+    + rotate() override
+    + advance() override
+    + elevate() override
+    - try_translate()
+  }
+}
+
+LidarMock .up.|> ILidarSensor
+PositionMock .up.|> IPositionSensor
+MovementMock .up.|> IMovementDriver
+
+class MockWorld <<data>> {
+  + truth: BuildingTruth
+  + drone_config: DroneConfig
+  + position: Position
+  + yaw: Angle
+  + collided: bool
+}
+
+LidarMock --> MockWorld
+PositionMock --> MockWorld
+MovementMock --> MockWorld
+
+class Simulator <<sim>> {
+  - mission_: MissionConfig
+  - world_: MockWorld
+  - known_map_: BuildingMap
+  - drone_: Drone
+  - pos/lidar/move mocks
+  + run(max_cmds): SimulationReport
+  - score_against_truth()
+}
+
+Simulator *-- MockWorld
+Simulator *-- LidarMock
+Simulator *-- PositionMock
+Simulator *-- MovementMock
+
+class Drone {
+  - map_: BuildingMap&
+  - cfg_: DroneConfig&
+  - state_: State (enum)
+  - last_position_: Position
+  - yaw_known_: Angle
+  - pending_moves_: deque
+  + next_command(): DroneCommand
+  + on_location(pos, yaw)
+  + on_scan(LidarFrame)
+  + on_move_result(MoveResult)
+  - apply_full_scan_to_map()
+  - bfs_to_frontier()
+  - plan_next_target()
+}
+
+Simulator *-right- Drone
+
+class VoxelGrid {
+  - cell_size_: Length
+  - origin_: Position
+  - nx_, ny_, nz_: int
+  - data_: vector<int8_t>
+  + cell_at(Position): Cell
+  + center_of(Cell): Position
+  + get(Cell) / set(Cell, v)
+  + in_bounds(Cell): bool
+}
+
+class BuildingTruth {
+  - grid_: VoxelGrid
+  + at(Cell) / at(Position): int8_t
+  + is_occupied() / is_empty()
+}
+
+class BuildingMap {
+  - grid_: VoxelGrid
+  + get(Pos) / set(Pos, v)
+  + get_cell(Cell) / set_cell(Cell, v)
+  - point_in_polygon()
+}
+
+BuildingTruth *-- VoxelGrid
+BuildingMap *-- VoxelGrid
+Simulator *-- BuildingTruth
+Simulator *-- BuildingMap
+Drone ..> BuildingMap : uses
+
+class "ConfigParser / MapIO" <<util>> {
+  + load_drone_config(path, out)
+  + load_mission_config(path, out)
+  + load_truth() / save_map()
+}
+
+class Logger <<util>> {
+  - level_: LogLevel
+  - file_: ofstream
+  + instance(): Logger&
+  + info() / warning() / error()
+}
+
+class "Data Types" <<data>> {
+  Position {x, y, z: Length}
+  Cell {x, y, z: int}
+  LidarFrame {side, fov, distances[]}
+  DroneCommand {kind, angle, length}
+  DroneConfig / MissionConfig
+  SimulationReport {score, ...}
+}
+
+@enduml

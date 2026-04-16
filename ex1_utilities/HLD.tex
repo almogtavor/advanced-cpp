@@ -1,0 +1,191 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{float}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Drone Mapper -- High Level Design}
+\lhead{Advanced Topics in Programming 2026B}
+\cfoot{\thepage}
+
+\titleformat{\section}{\Large\bfseries}{}{0em}{}
+\titleformat{\subsection}{\large\bfseries}{}{0em}{}
+\titlespacing*{\section}{0pt}{8pt}{4pt}
+\titlespacing*{\subsection}{0pt}{6pt}{3pt}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries High Level Design Document}\\[4pt]
+{\Large Drone Mapper -- Exercise 1}\\[8pt]
+{\large Advanced Topics in Programming, Semester B 2026}\\[12pt]
+\begin{tabular}{ll}
+\textbf{Name} & \textbf{ID} \\
+\hline
+Almog Tavor & (ID: 323084962) \\
+Yonatan Kahana & (ID: 212223036) \\
+\end{tabular}
+\end{center}
+
+\vspace{6pt}
+
+% ============================================================
+\section{1. UML Class Diagram}
+% ============================================================
+
+The diagram below shows the main classes, their relationships, and key
+methods. Interfaces are blue, core classes yellow, mock implementations
+green, data types pink, and utilities purple.
+
+\vspace{2pt}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.72\textheight,keepaspectratio]{class_diagram.pdf}
+\end{center}
+
+\vspace{-4pt}
+\noindent Key relationships:
+\begin{itemize}[nosep,topsep=2pt]
+\item \textbf{Simulator} owns all mocks, the Drone, both maps, and orchestrates the loop.
+\item \textbf{Drone} sees only abstract interfaces (ILidarSensor, IPositionSensor,
+      IMovementDriver) through the command/response pattern -- it never touches the
+      mocks or truth directly.
+\item \textbf{MockWorld} is shared state between the three mocks so that movement
+      updates are visible to the position and lidar sensors.
+\item \textbf{VoxelGrid} is the shared spatial data structure, composed into both
+      BuildingTruth and BuildingMap.
+\end{itemize}
+
+\newpage
+% ============================================================
+\section{2. UML Sequence Diagram -- Main Flow}
+% ============================================================
+
+The diagram shows the four phases of the main simulation loop: location
+query, scanning, movement, and scoring.
+
+\vspace{2pt}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{sequence_diagram.pdf}
+\end{center}
+
+\newpage
+% ============================================================
+\section{3. Design Considerations and Alternatives}
+% ============================================================
+
+\subsection{3.1 Separation of Drone Logic from Simulation}
+
+The drone never directly accesses the building truth or the mock implementations.
+Instead, the \textbf{Simulator} acts as a mediator: it asks the Drone for a
+command, dispatches it to the appropriate mock, and feeds the result back. This
+mirrors a real embedded system where the flight controller issues commands and
+receives sensor data through hardware abstraction layers.
+
+\textbf{Alternative considered:} Letting the drone call sensor/driver interfaces
+directly (dependency injection). We rejected this because the assignment's ``main
+loop'' specification explicitly requires the simulator to ask the drone for
+commands, making the command-response pattern the natural fit.
+
+\subsection{3.2 Voxel Grid as Shared Spatial Representation}
+
+Both \texttt{BuildingTruth} and \texttt{BuildingMap} wrap the same
+\texttt{VoxelGrid} class. This ensures identical coordinate-to-cell mapping
+and makes the scoring comparison straightforward (iterate both grids in lock-step).
+
+\textbf{Alternative considered:} Using an octree or sparse hash map for the
+drone's known map (since most cells start as ``unmapped''). We chose a dense
+grid for simplicity and because the building sizes in exercise~1 are small
+enough that memory is not a concern.
+
+\subsection{3.3 Full Lidar Frame Back-Projection}
+
+Initially we used only the central ray of each cardinal scan to update the map.
+This left corner cells unmapped and produced scores around 96\%. We improved
+to back-projecting \emph{every} ray in the lidar frame to world coordinates,
+walking each ray through the voxel grid and marking cells accordingly. This
+raised scores to 99\%+ and reduced command counts by 60\%.
+
+\textbf{Trade-off:} The full frame approach is $O(n^2)$ per scan (where $n$
+is the lidar grid side), but with our capped grid size ($\le 51 \times 51$)
+and only 6 scans per waypoint, the overhead is negligible.
+
+\subsection{3.4 Frontier-Based BFS Exploration}
+
+The drone maintains a ``frontier'' -- known-empty cells adjacent to unmapped
+cells. At each waypoint it runs BFS through known-empty cells to find the
+nearest frontier, plans the shortest path, and follows it. This is complete
+(it will visit every reachable cell) and deterministic (BFS neighbor order
+is fixed).
+
+\textbf{Alternative considered:} DFS / wall-following. DFS is simpler but can
+lead to long back-tracking paths. A\textsuperscript{*} with distance heuristic
+could reduce path lengths but adds complexity without material benefit at
+exercise~1 grid sizes.
+
+\subsection{3.5 Strong Types Without mp-units}
+
+The assignment recommends mp-units, but it is a heavy external dependency.
+We provide a lightweight \texttt{Units.h} header with \texttt{Length} and
+\texttt{Angle} classes that support the same multiplication syntax
+(\texttt{5 * cm}, \texttt{90 * deg}). This keeps the build self-contained
+while enforcing unit safety at the type level.
+
+\subsection{3.6 Polygon Boundary Support}
+
+The mission boundary is defined as an arbitrary polygon (supporting concave
+shapes like L-buildings). We use the standard ray-casting point-in-polygon
+algorithm to classify each voxel during \texttt{BuildingMap} initialization.
+
+\textbf{Alternative considered:} Axis-aligned bounding box (simpler, but cannot
+represent non-rectangular buildings). We chose polygon support since the
+assignment explicitly mentions ``polygon of \{X, Y\}''.
+
+\subsection{3.7 Floating-Point Position Snapping}
+
+We discovered that cumulative floating-point drift from \texttt{cos($\pi$/2)}
+not being exactly zero caused the drone's actual position to cross cell
+boundaries, leading to incorrect lidar readings and infinite loops. The fix:
+snap world position to the nearest 0.01\,cm after every movement in the mock.
+
+\subsection{3.8 Error Recovery Strategy}
+
+All input file errors are recoverable where possible: missing config keys use
+defaults, malformed map rows are padded, and unknown keys are logged. Only truly
+fatal errors (file not found, no grid data) cause the program to print an error
+and exit via \texttt{main} return -- never via \texttt{exit()} or exceptions
+escaping \texttt{main}.
+
+% ============================================================
+\section{4. Testing Approach}
+% ============================================================
+
+\begin{itemize}[nosep]
+\item \textbf{Bottom-up:} Each module is tested in isolation before integration.
+      Mocks are tested against known truth grids with predictable geometry.
+\item \textbf{Integration:} Full truth$\to$simulator$\to$drone pipeline tests
+      verify end-to-end behaviour (score threshold, no collisions).
+\item \textbf{Error paths:} Missing files, unknown keys, and malformed values
+      are verified to be handled gracefully with recoverable defaults.
+\item \textbf{Determinism:} All tests are deterministic. Same input always
+      produces the same output.
+\end{itemize}
+
+\subsection{4.1 Sample Input Sets}
+
+Three input sets exercise different scenarios:
+
+\begin{enumerate}[nosep]
+\item \textbf{set1} -- Simple 10$\times$10 empty room (baseline correctness).
+\item \textbf{set2} -- 15$\times$12 building with a sealed 3$\times$3 pocket
+      (tests that inaccessible areas remain unmapped without crashing).
+\item \textbf{set3} -- L-shaped building with non-convex polygon boundary
+      (tests polygon clipping and multi-arm exploration).
+\end{enumerate}
+
+\end{document}

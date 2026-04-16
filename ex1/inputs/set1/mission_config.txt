@@ -1,0 +1,10 @@
+# Mission for set1 (simple square room)
+start 25 25 5
+height_min 0
+height_max 10
+xy_decimal_places 0
+height_decimal_places 0
+polygon_vertex 0   0
+polygon_vertex 100 0
+polygon_vertex 100 100
+polygon_vertex 0   100

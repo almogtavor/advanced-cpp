@@ -1,0 +1,27 @@
+# Build artifacts
+*.o
+*.d
+drone_mapper
+drone_mapper_tests
+build/
+
+# LaTeX artifacts
+*.aux
+*.log
+*.out
+*.synctex.gz
+
+# Generated PNGs (keep PDFs)
+*.png
+
+# IDE
+.vscode/
+
+# Runtime logs
+drone_mapper.log
+
+# OS
+.DS_Store
+*.fdb_latexmk
+*.fls
+*.synctex*

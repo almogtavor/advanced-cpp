@@ -1,0 +1,22 @@
+# Set 3: L-shaped building. The polygon (in mission_config.txt) excludes
+# the upper-right notch. Walls of the L are placed both on the polygon
+# edges and just outside, so the lidar correctly bounces off them.
+cell_size 10
+origin 0 0 0
+size 15 15 1
+layer 0
+###############
+#.............#
+#.............#
+#.............#
+#.............#
+#.............#
+#.....#########
+#.....#########
+#.....#########
+#.....#########
+#.....#########
+#.....#########
+#.....#########
+#.....#########
+###############

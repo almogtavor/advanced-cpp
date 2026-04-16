@@ -1,0 +1,12 @@
+# Mission for set3 (L-shaped building, non-convex polygon)
+start 25 25 5
+height_min 0
+height_max 10
+xy_decimal_places 0
+height_decimal_places 0
+polygon_vertex   0   0
+polygon_vertex 150   0
+polygon_vertex 150  60
+polygon_vertex  60  60
+polygon_vertex  60 150
+polygon_vertex   0 150

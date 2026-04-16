@@ -1,0 +1,15 @@
+# Drone capabilities for set1 (small open room)
+# All lengths in cm, angles in degrees.
+min_passage_width  30
+min_passage_length 30
+min_passage_height 50
+lidar_fov          60
+lidar_min_range     5
+lidar_max_range   200
+lidar_res_dist_a   50
+lidar_res_side_a    5
+lidar_res_dist_b  200
+lidar_res_side_b   20
+max_rotate_per_cmd  180
+max_advance_per_cmd 100
+max_elevate_per_cmd 100
