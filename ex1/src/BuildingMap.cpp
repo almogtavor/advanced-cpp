@@ -19,7 +19,7 @@ BuildingMap::BuildingMap(const MissionConfig& mission,
                 if (!in_height) continue;
                 if (!mission.boundary_polygon.empty()) {
                     const bool inside = point_in_polygon(
-                        center.x.in_cm(), center.y.in_cm(),
+                        center.x.numerical_value_in(units::cm), center.y.numerical_value_in(units::cm),
                         mission.boundary_polygon);
                     if (!inside) continue;
                 }
@@ -45,10 +45,10 @@ bool BuildingMap::point_in_polygon(
     const std::size_t n = poly.size();
     if (n < 3) return true;
     for (std::size_t i = 0, j = n - 1; i < n; j = i++) {
-        const double xi = poly[i].first.in_cm();
-        const double yi = poly[i].second.in_cm();
-        const double xj = poly[j].first.in_cm();
-        const double yj = poly[j].second.in_cm();
+        const double xi = poly[i].first.numerical_value_in(units::cm);
+        const double yi = poly[i].second.numerical_value_in(units::cm);
+        const double xj = poly[j].first.numerical_value_in(units::cm);
+        const double yj = poly[j].second.numerical_value_in(units::cm);
         const bool crosses =
             ((yi > y) != (yj > y)) &&
             (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi);

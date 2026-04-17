@@ -5,9 +5,49 @@ Bonus features implemented:
    - A singleton Logger class that writes timestamped, level-filtered log
      messages (DEBUG, INFO, WARNING, ERROR) to a log file (drone_mapper.log)
      created in the same directory as the input/output files.
-   - Used in: src/main.cpp (lines 30-80), src/Simulator.cpp (lines 32-40, 67-75, 82)
-   - The log level is set to DEBUG by default and can be changed programmatically.
-   - LOG_DEBUG / LOG_INFO / LOG_WARNING / LOG_ERROR convenience macros are provided.
-   - Log file is automatically created on each run; no additional configuration
-     needed. Logs include: startup info, config loading status, grid dimensions,
-     drone start position, collision warnings, safety cap warnings, and final score.
+   - Used in: src/main.cpp, src/Simulator.cpp
+   - The log level defaults to DEBUG and can be changed programmatically.
+   - LOG_DEBUG / LOG_INFO / LOG_WARNING / LOG_ERROR convenience macros are
+     provided.
+   - Log file is automatically created on each run; no additional
+     configuration needed. Logs include: startup info, config loading
+     status, grid dimensions, drone start position, collision warnings,
+     safety cap warnings, and final score.
+
+2. Automatic testing (custom lightweight test framework)
+   - Framework:  tests/test_framework.h
+   - Runner:     tests/test_main.cpp
+   - Test files: tests/test_units.cpp, tests/test_voxel_grid.cpp,
+     tests/test_building_map.cpp, tests/test_config_parser.cpp,
+     tests/test_map_io.cpp, tests/test_lidar_mock.cpp,
+     tests/test_movement_mock.cpp, tests/test_drone.cpp,
+     tests/test_simulator.cpp
+   - 27 tests covering: strong-type units (Length/Angle), voxel grid
+     operations, building map polygon/height filtering, config parsing
+     with error recovery, map I/O round-trip, lidar mock ray casting,
+     movement mock collision detection, drone command sequence, and full
+     simulation integration.
+   - The framework provides TEST(), CHECK(), CHECK_EQ(), and CHECK_NEAR()
+     macros. It uses no external libraries (the assignment forbids external
+     dependencies by default; the framework is a lightweight alternative to
+     GTest).
+   - Build and run:  make test
+   - The framework is single-translation-unit: test_main.cpp #includes all
+     test source files, which are then compiled and linked against the same
+     project library objects.
+
+3. Visual simulation (HTML-based map visualization)
+   - File: visualize.py
+   - A Python 3 script (using only the standard library, no external
+     packages) that reads map_input.txt and map_output.txt and generates a
+     self-contained HTML file (visualization.html) with:
+     * Side-by-side truth map vs. drone output map for each z-layer
+     * A diff overlay highlighting correct (green), incorrect (red),
+       unmapped (yellow), and out-of-bounds (blue) cells
+     * Score computation matching the C++ scoring formula
+     * Interactive layer selector for multi-layer maps
+     * Color-coded legend and hover tooltips showing cell coordinates
+   - Usage:  python3 visualize.py [<input_output_files_path>]
+   - The visualization is entirely optional and does not affect the main
+     drone_mapper program. It is an external post-processing utility as
+     permitted by the assignment rules.

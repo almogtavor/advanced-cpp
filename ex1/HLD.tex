@@ -122,13 +122,19 @@ lead to long back-tracking paths. A\textsuperscript{*} with distance heuristic
 could reduce path lengths but adds complexity without material benefit at
 exercise~1 grid sizes.
 
-\subsection{3.5 Strong Types Without mp-units}
+\subsection{3.5 Strong Types with mp-units}
 
-The assignment recommends mp-units, but it is a heavy external dependency.
-We provide a lightweight \texttt{Units.h} header with \texttt{Length} and
-\texttt{Angle} classes that support the same multiplication syntax
-(\texttt{5 * cm}, \texttt{90 * deg}). This keeps the build self-contained
-while enforcing unit safety at the type level.
+All values and APIs use the mp-units library (v2.0.0) as required by the
+assignment. A thin wrapper header (\texttt{include/units/Units.h}) includes
+mp-units and provides \texttt{Length} and \texttt{Angle} type aliases plus
+\texttt{using} declarations for \texttt{cm}, \texttt{m}, and \texttt{deg}.
+This keeps downstream code concise (\texttt{5.0 * cm}, \texttt{90.0 * deg})
+while mp-units enforces dimensional safety at compile time.
+
+The mp-units and gsl-lite header files are bundled under
+\texttt{third\_party/} so that the submission is self-contained and
+compiles without requiring these libraries to be pre-installed on the
+build machine.
 
 \subsection{3.6 Polygon Boundary Support}
 

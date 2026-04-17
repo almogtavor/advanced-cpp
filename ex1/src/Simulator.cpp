@@ -33,11 +33,11 @@ Simulator::Simulator(BuildingTruth truth,
              std::to_string(world_.truth.grid().nx()) + "x" +
              std::to_string(world_.truth.grid().ny()) + "x" +
              std::to_string(world_.truth.grid().nz()) +
-             " cell_size=" + std::to_string(world_.truth.grid().cell_size().in_cm()) + "cm");
+             " cell_size=" + std::to_string(world_.truth.grid().cell_size().numerical_value_in(units::cm)) + "cm");
     LOG_INFO("Start position: (" +
-             std::to_string(world_.position.x.in_cm()) + ", " +
-             std::to_string(world_.position.y.in_cm()) + ", " +
-             std::to_string(world_.position.z.in_cm()) + ")");
+             std::to_string(world_.position.x.numerical_value_in(units::cm)) + ", " +
+             std::to_string(world_.position.y.numerical_value_in(units::cm)) + ", " +
+             std::to_string(world_.position.z.numerical_value_in(units::cm)) + ")");
 }
 
 SimulationReport Simulator::run(int max_commands) {
@@ -73,9 +73,9 @@ SimulationReport Simulator::run(int max_commands) {
                     LOG_WARNING("Drone collision at command #" +
                                 std::to_string(command_count) +
                                 " pos=(" +
-                                std::to_string(world_.position.x.in_cm()) + "," +
-                                std::to_string(world_.position.y.in_cm()) + "," +
-                                std::to_string(world_.position.z.in_cm()) + ")");
+                                std::to_string(world_.position.x.numerical_value_in(units::cm)) + "," +
+                                std::to_string(world_.position.y.numerical_value_in(units::cm)) + "," +
+                                std::to_string(world_.position.z.numerical_value_in(units::cm)) + ")");
                 }
                 break;
             }

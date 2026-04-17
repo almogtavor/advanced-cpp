@@ -92,6 +92,9 @@ int run(const fs::path& base_dir) {
                   << base_dir << "\n";
         return 1;
     }
+    // Also write under the alternative name from the submission guidelines.
+    drone::MapIO::save_map(
+        (base_dir / "output_map.txt").string(), sim.known_map());
 
     LOG_INFO("Simulation complete, score=" + std::to_string(report.score) +
              " commands=" + std::to_string(report.command_count) +

@@ -3,7 +3,14 @@
 
 CXX      ?= g++
 CXXFLAGS ?= -std=c++20 -Wall -Wextra -Werror -pedantic -O2
-INCLUDES := -Iinclude
+MP_UNITS  := third_party/mp-units/src
+GSL_LITE  := third_party/gsl-lite/include
+INCLUDES  := -Iinclude \
+             -I$(MP_UNITS)/core/include \
+             -I$(MP_UNITS)/systems/si/include \
+             -I$(MP_UNITS)/systems/isq/include \
+             -I$(GSL_LITE) \
+             -Dgsl_FEATURE_GSL_COMPATIBILITY_MODE=1
 
 LIB_SRCS := \
     src/VoxelGrid.cpp \
@@ -22,7 +29,10 @@ MAIN_OBJ  := $(MAIN_SRC:.cpp=.o)
 
 EXEC      := drone_mapper
 
-.PHONY: all clean
+TEST_SRC  := tests/test_main.cpp
+TEST_EXEC := run_tests
+
+.PHONY: all clean test
 
 all: $(EXEC)
 
@@ -32,5 +42,11 @@ $(EXEC): $(LIB_OBJS) $(MAIN_OBJ)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<
 
+test: $(TEST_EXEC)
+	./$(TEST_EXEC)
+
+$(TEST_EXEC): $(LIB_OBJS)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -Itests -o $@ $(TEST_SRC) $(LIB_OBJS)
+
 clean:
-	rm -f $(LIB_OBJS) $(MAIN_OBJ) $(EXEC)
+	rm -f $(LIB_OBJS) $(MAIN_OBJ) $(EXEC) $(TEST_EXEC)

@@ -24,6 +24,9 @@ cmake -B build && cmake --build build
 
 Requires gcc 11.4+ with `-std=c++20 -Wall -Wextra -Werror -pedantic`.
 
+The mp-units and gsl-lite dependencies are bundled under `third_party/` and
+resolved automatically by the Makefile and CMake.
+
 ## Running
 
 ```
@@ -40,6 +43,7 @@ The program reads three input files from the given path and writes one output fi
 | `mission_config.txt` | input | Mission boundaries and start position |
 | `map_input.txt` | input | Building truth map (used only by mock sensors) |
 | `map_output.txt` | output | Drone's reconstructed map |
+| `output_map.txt` | output | Same content as `map_output.txt` (alternative name) |
 | `input_errors.txt` | output (optional) | Created only when recoverable parse errors are found |
 
 ## Input file formats
@@ -120,12 +124,37 @@ For every voxel inside the mission polygon and height range:
 
 A perfect score of 100 is possible only when every in-bounds voxel is reachable by the drone.
 
+## Testing
+
+```bash
+make test          # builds and runs all 27 unit/integration tests
+```
+
+The test suite uses a custom lightweight framework (`tests/test_framework.h`)
+that requires no external libraries. Tests cover all major components: units,
+voxel grid, building map, config parsing, map I/O, mock sensors/drivers, drone
+logic, and full simulation integration.
+
+## Visual simulation
+
+```bash
+python3 visualize.py inputs/set1/
+```
+
+Generates `visualization.html` in the given directory. Open in any browser to
+see a side-by-side comparison of the truth map and the drone's output, with a
+diff overlay and score computation. Requires Python 3 (standard library only,
+no external packages).
+
 ## Strong types
 
-The assignment requires the mp-units library. To keep this submission free of
-external dependencies and compilable with a plain `g++` invocation, we provide
-a lightweight header (`include/units/Units.h`) that gives the same surface API:
-`5 * cm`, `90 * deg`, `1 * m` all produce strong `Length` / `Angle` types.
+All values and APIs use the mp-units library as required by the assignment.
+The wrapper header `include/units/Units.h` provides `Length` and `Angle` type
+aliases and brings `cm`, `m`, `deg` into the `units` namespace.
+`5.0 * cm`, `90.0 * deg`, `1.0 * m` all produce strong quantity types.
+The mp-units (v2.0.0) and gsl-lite header files are bundled under `third_party/`
+so that the submission is self-contained and compiles without requiring these
+libraries to be pre-installed on the build machine.
 
 ## Algorithm overview
 

@@ -88,19 +88,19 @@ ParseResult ConfigParser::load_drone_config(const std::string& path,
         }
 
         // All length keys store cm in the file, all angle keys degrees.
-        if      (key == "min_passage_width")    out.min_passage_width    = units::Length(d);
-        else if (key == "min_passage_length")   out.min_passage_length   = units::Length(d);
-        else if (key == "min_passage_height")   out.min_passage_height   = units::Length(d);
-        else if (key == "lidar_fov")            out.lidar_fov            = units::Angle(d);
-        else if (key == "lidar_min_range")      out.lidar_min_range      = units::Length(d);
-        else if (key == "lidar_max_range")      out.lidar_max_range      = units::Length(d);
-        else if (key == "lidar_res_dist_a")     out.lidar_res_dist_a     = units::Length(d);
-        else if (key == "lidar_res_side_a")     out.lidar_res_side_a     = units::Length(d);
-        else if (key == "lidar_res_dist_b")     out.lidar_res_dist_b     = units::Length(d);
-        else if (key == "lidar_res_side_b")     out.lidar_res_side_b     = units::Length(d);
-        else if (key == "max_rotate_per_cmd")   out.max_rotate_per_cmd   = units::Angle(d);
-        else if (key == "max_advance_per_cmd")  out.max_advance_per_cmd  = units::Length(d);
-        else if (key == "max_elevate_per_cmd")  out.max_elevate_per_cmd  = units::Length(d);
+        if      (key == "min_passage_width")    out.min_passage_width    = d * units::cm;
+        else if (key == "min_passage_length")   out.min_passage_length   = d * units::cm;
+        else if (key == "min_passage_height")   out.min_passage_height   = d * units::cm;
+        else if (key == "lidar_fov")            out.lidar_fov            = d * units::deg;
+        else if (key == "lidar_min_range")      out.lidar_min_range      = d * units::cm;
+        else if (key == "lidar_max_range")      out.lidar_max_range      = d * units::cm;
+        else if (key == "lidar_res_dist_a")     out.lidar_res_dist_a     = d * units::cm;
+        else if (key == "lidar_res_side_a")     out.lidar_res_side_a     = d * units::cm;
+        else if (key == "lidar_res_dist_b")     out.lidar_res_dist_b     = d * units::cm;
+        else if (key == "lidar_res_side_b")     out.lidar_res_side_b     = d * units::cm;
+        else if (key == "max_rotate_per_cmd")   out.max_rotate_per_cmd   = d * units::deg;
+        else if (key == "max_advance_per_cmd")  out.max_advance_per_cmd  = d * units::cm;
+        else if (key == "max_elevate_per_cmd")  out.max_elevate_per_cmd  = d * units::cm;
         else {
             record_error(result, "drone_config:" + std::to_string(line_no) +
                                   ": unknown key '" + key + "' (ignored)");
@@ -145,17 +145,17 @@ ParseResult ConfigParser::load_mission_config(const std::string& path,
             double x, y, z;
             if (parse_double(values[0], x) && parse_double(values[1], y) &&
                 parse_double(values[2], z)) {
-                out.start = Position{units::Length(x), units::Length(y), units::Length(z)};
+                out.start = Position{x * units::cm, y * units::cm, z * units::cm};
             } else {
                 record_error(result, "mission_config:" + std::to_string(line_no) +
                                       ": bad start coords");
             }
         } else if (key == "height_min") {
             if (!need_n(1)) continue;
-            double v; if (parse_double(values[0], v)) out.height_min = units::Length(v);
+            double v; if (parse_double(values[0], v)) out.height_min = v * units::cm;
         } else if (key == "height_max") {
             if (!need_n(1)) continue;
-            double v; if (parse_double(values[0], v)) out.height_max = units::Length(v);
+            double v; if (parse_double(values[0], v)) out.height_max = v * units::cm;
         } else if (key == "xy_decimal_places") {
             if (!need_n(1)) continue;
             int v; if (parse_int(values[0], v)) out.xy_decimal_places = v;
@@ -166,7 +166,7 @@ ParseResult ConfigParser::load_mission_config(const std::string& path,
             if (!need_n(2)) continue;
             double x, y;
             if (parse_double(values[0], x) && parse_double(values[1], y)) {
-                out.boundary_polygon.emplace_back(units::Length(x), units::Length(y));
+                out.boundary_polygon.emplace_back(x * units::cm, y * units::cm);
             } else {
                 record_error(result, "mission_config:" + std::to_string(line_no) +
                                       ": bad polygon_vertex");
@@ -177,7 +177,7 @@ ParseResult ConfigParser::load_mission_config(const std::string& path,
             if (parse_double(values[0], x) && parse_double(values[1], y) &&
                 parse_double(values[2], z)) {
                 out.recharge_positions.push_back(
-                    Position{units::Length(x), units::Length(y), units::Length(z)});
+                    Position{x * units::cm, y * units::cm, z * units::cm});
             }
         } else {
             record_error(result, "mission_config:" + std::to_string(line_no) +

@@ -62,10 +62,10 @@ ParseResult write_grid(const std::string& path, const VoxelGrid& grid) {
         return result;
     }
     out << "# Drone Mapper output map\n";
-    out << "cell_size " << grid.cell_size().in_cm() << "\n";
-    out << "origin "    << grid.origin().x.in_cm() << " "
-                        << grid.origin().y.in_cm() << " "
-                        << grid.origin().z.in_cm() << "\n";
+    out << "cell_size " << grid.cell_size().numerical_value_in(units::cm) << "\n";
+    out << "origin "    << grid.origin().x.numerical_value_in(units::cm) << " "
+                        << grid.origin().y.numerical_value_in(units::cm) << " "
+                        << grid.origin().z.numerical_value_in(units::cm) << "\n";
     out << "size " << grid.nx() << " " << grid.ny() << " " << grid.nz() << "\n";
 
     for (int z = 0; z < grid.nz(); ++z) {
@@ -91,7 +91,7 @@ ParseResult MapIO::load_truth(const std::string& path, BuildingTruth& out) {
         return result;
     }
 
-    units::Length cell_size{10 * units::cm};
+    units::Length cell_size = 10 * units::cm;
     Position origin{};
     int nx = 0, ny = 0, nz = 0;
     bool grid_initialized = false;
@@ -144,13 +144,13 @@ ParseResult MapIO::load_truth(const std::string& path, BuildingTruth& out) {
         iss >> key;
         if (key == "cell_size") {
             std::string v; iss >> v;
-            double d; if (parse_double(v, d)) cell_size = units::Length(d);
+            double d; if (parse_double(v, d)) cell_size = d * units::cm;
         } else if (key == "origin") {
             std::string a, b, c;
             iss >> a >> b >> c;
             double x, y, z;
             if (parse_double(a, x) && parse_double(b, y) && parse_double(c, z)) {
-                origin = Position{units::Length(x), units::Length(y), units::Length(z)};
+                origin = Position{x * units::cm, y * units::cm, z * units::cm};
             }
         } else if (key == "size") {
             std::string a, b, c;

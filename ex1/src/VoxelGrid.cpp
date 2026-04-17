@@ -22,10 +22,10 @@ bool VoxelGrid::in_bounds(Cell c) const {
 }
 
 Cell VoxelGrid::cell_at(Position p) const {
-    const double cs = cell_size_.in_cm();
-    const double dx = (p.x - origin_.x).in_cm() / cs;
-    const double dy = (p.y - origin_.y).in_cm() / cs;
-    const double dz = (p.z - origin_.z).in_cm() / cs;
+    const double cs = cell_size_.numerical_value_in(units::cm);
+    const double dx = (p.x - origin_.x).numerical_value_in(units::cm) / cs;
+    const double dy = (p.y - origin_.y).numerical_value_in(units::cm) / cs;
+    const double dz = (p.z - origin_.z).numerical_value_in(units::cm) / cs;
     return Cell{
         static_cast<int>(std::floor(dx)),
         static_cast<int>(std::floor(dy)),
@@ -33,11 +33,11 @@ Cell VoxelGrid::cell_at(Position p) const {
 }
 
 Position VoxelGrid::center_of(Cell c) const {
-    const double cs = cell_size_.in_cm();
+    const double cs = cell_size_.numerical_value_in(units::cm);
     return Position{
-        origin_.x + units::Length((c.x + 0.5) * cs),
-        origin_.y + units::Length((c.y + 0.5) * cs),
-        origin_.z + units::Length((c.z + 0.5) * cs)};
+        origin_.x + (c.x + 0.5) * cs * units::cm,
+        origin_.y + (c.y + 0.5) * cs * units::cm,
+        origin_.z + (c.z + 0.5) * cs * units::cm};
 }
 
 int8_t VoxelGrid::get(Cell c) const {

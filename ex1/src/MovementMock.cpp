@@ -7,21 +7,21 @@ namespace drone {
 
 MoveResult MovementMock::rotate(RotateDirection dir, units::Angle amount) {
     // Clamp to the configured maximum and remember whether we clamped.
-    const double max_deg = world_.drone_config.max_rotate_per_cmd.in_deg();
-    double requested = amount.in_deg();
+    const double max_deg = world_.drone_config.max_rotate_per_cmd.numerical_value_in(units::deg);
+    double requested = amount.numerical_value_in(units::deg);
     bool clamped = false;
     if (std::abs(requested) > max_deg) {
         requested = std::copysign(max_deg, requested);
         clamped = true;
     }
     const double signed_deg = (dir == RotateDirection::Right) ? requested : -requested;
-    world_.yaw = (world_.yaw + units::Angle(signed_deg)).normalized();
+    world_.yaw = units::normalized(world_.yaw + signed_deg * units::deg);
     return clamped ? MoveResult::Clamped : MoveResult::Ok;
 }
 
 MoveResult MovementMock::try_translate(double dx_cm, double dy_cm, double dz_cm) {
     const auto& grid = world_.truth.grid();
-    const double cs = grid.cell_size().in_cm();
+    const double cs = grid.cell_size().numerical_value_in(units::cm);
     const double dist = std::sqrt(dx_cm*dx_cm + dy_cm*dy_cm + dz_cm*dz_cm);
     if (dist == 0.0) return MoveResult::Ok;
 
@@ -31,16 +31,16 @@ MoveResult MovementMock::try_translate(double dx_cm, double dy_cm, double dz_cm)
     const double sy = dy_cm / steps;
     const double sz = dz_cm / steps;
 
-    double x = world_.position.x.in_cm();
-    double y = world_.position.y.in_cm();
-    double z = world_.position.z.in_cm();
+    double x = world_.position.x.numerical_value_in(units::cm);
+    double y = world_.position.y.numerical_value_in(units::cm);
+    double z = world_.position.z.numerical_value_in(units::cm);
 
     for (int i = 1; i <= steps; ++i) {
         const double nx = x + sx;
         const double ny = y + sy;
         const double nz = z + sz;
         const Cell c = grid.cell_at(Position{
-            units::Length(nx), units::Length(ny), units::Length(nz)});
+            nx * units::cm, ny * units::cm, nz * units::cm});
         if (grid.in_bounds(c) && grid.get(c) == voxel::kOccupied) {
             world_.collided = true;
             return MoveResult::Collision;
@@ -54,20 +54,20 @@ MoveResult MovementMock::try_translate(double dx_cm, double dy_cm, double dz_cm)
     // cell boundary after many moves).
     auto snap = [](double v) { return std::round(v * 100.0) / 100.0; };
     world_.position = Position{
-        units::Length(snap(x)), units::Length(snap(y)), units::Length(snap(z))};
+        snap(x) * units::cm, snap(y) * units::cm, snap(z) * units::cm};
     return MoveResult::Ok;
 }
 
 MoveResult MovementMock::advance(units::Length amount) {
     // Clamp to max_advance_per_cmd.
-    const double max_cm = world_.drone_config.max_advance_per_cmd.in_cm();
-    double req = amount.in_cm();
+    const double max_cm = world_.drone_config.max_advance_per_cmd.numerical_value_in(units::cm);
+    double req = amount.numerical_value_in(units::cm);
     bool clamped = false;
     if (std::abs(req) > max_cm) {
         req = std::copysign(max_cm, req);
         clamped = true;
     }
-    const double yaw_rad = world_.yaw.in_rad();
+    const double yaw_rad = units::to_rad(world_.yaw);
     const double dx = req * std::cos(yaw_rad);
     const double dy = req * std::sin(yaw_rad);
     auto r = try_translate(dx, dy, 0.0);
@@ -76,8 +76,8 @@ MoveResult MovementMock::advance(units::Length amount) {
 }
 
 MoveResult MovementMock::elevate(units::Length amount) {
-    const double max_cm = world_.drone_config.max_elevate_per_cmd.in_cm();
-    double req = amount.in_cm();
+    const double max_cm = world_.drone_config.max_elevate_per_cmd.numerical_value_in(units::cm);
+    double req = amount.numerical_value_in(units::cm);
     bool clamped = false;
     if (std::abs(req) > max_cm) {
         req = std::copysign(max_cm, req);

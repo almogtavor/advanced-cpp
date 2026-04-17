@@ -55,9 +55,9 @@ DroneCommand Drone::build_scan_command() {
     const auto dir = static_cast<ScanDir>(scan_index_);
     // The lidar's scan() takes a yaw OFFSET relative to current yaw, so
     // we subtract our known yaw from the absolute target.
-    const double abs_yaw_target = scan_dir_yaw_offset(dir).in_deg();
-    const double offset = signed_delta_deg(yaw_known_.in_deg(), abs_yaw_target);
-    cmd.scan_xy    = units::Angle(offset);
+    const double abs_yaw_target = scan_dir_yaw_offset(dir).numerical_value_in(units::deg);
+    const double offset = signed_delta_deg(yaw_known_.numerical_value_in(units::deg), abs_yaw_target);
+    cmd.scan_xy    = offset * units::deg;
     cmd.scan_pitch = scan_dir_pitch_offset(dir);
     return cmd;
 }
@@ -68,7 +68,7 @@ void Drone::apply_full_scan_to_map(const LidarFrame& frame) {
     // position to the hit point, marking them empty. If the ray hit an
     // obstacle we mark the target cell occupied.
     const auto& grid = map_.grid();
-    const double cs = grid.cell_size().in_cm();
+    const double cs = grid.cell_size().numerical_value_in(units::cm);
     const Cell here = current_cell();
 
     // Mark the drone's own cell as empty.
@@ -77,9 +77,9 @@ void Drone::apply_full_scan_to_map(const LidarFrame& frame) {
 
     if (frame.side <= 0) return;
 
-    const double half_fov = frame.fov.in_rad() / 2.0;
-    const double yaw_rad  = (yaw_known_ + frame.yaw_offset).normalized().in_rad();
-    const double pitch_base = frame.pitch_offset.in_rad();
+    const double half_fov = units::to_rad(frame.fov) / 2.0;
+    const double yaw_rad  = units::to_rad(units::normalized(yaw_known_ + frame.yaw_offset));
+    const double pitch_base = units::to_rad(frame.pitch_offset);
 
     // Build the same local axes used by LidarMock.
     const double fwd_x = std::cos(pitch_base) * std::cos(yaw_rad);
@@ -93,9 +93,9 @@ void Drone::apply_full_scan_to_map(const LidarFrame& frame) {
     const double up_y = -std::sin(pitch_base) * std::sin(yaw_rad);
     const double up_z =  std::cos(pitch_base);
 
-    const double ox = last_position_.x.in_cm();
-    const double oy = last_position_.y.in_cm();
-    const double oz = last_position_.z.in_cm();
+    const double ox = last_position_.x.numerical_value_in(units::cm);
+    const double oy = last_position_.y.numerical_value_in(units::cm);
+    const double oz = last_position_.z.numerical_value_in(units::cm);
 
     const int side   = frame.side;
     const int center = side / 2;
@@ -120,7 +120,7 @@ void Drone::apply_full_scan_to_map(const LidarFrame& frame) {
             double ray_dist;
             if (dist < 0.0) {
                 // -1: nothing in range. Use max_range.
-                ray_dist = cfg_.lidar_max_range.in_cm();
+                ray_dist = cfg_.lidar_max_range.numerical_value_in(units::cm);
                 has_hit = false;
             } else {
                 ray_dist = dist;
@@ -133,9 +133,9 @@ void Drone::apply_full_scan_to_map(const LidarFrame& frame) {
             for (int s = 1; s <= steps; ++s) {
                 const double t = std::min(static_cast<double>(s) * cs, ray_dist);
                 const Cell c = grid.cell_at(Position{
-                    units::Length(ox + dx * t),
-                    units::Length(oy + dy * t),
-                    units::Length(oz + dz * t)});
+                    (ox + dx * t) * units::cm,
+                    (oy + dy * t) * units::cm,
+                    (oz + dz * t) * units::cm});
                 if (c == prev_c) continue;
                 prev_c = c;
                 if (!grid.in_bounds(c)) break;
@@ -150,9 +150,9 @@ void Drone::apply_full_scan_to_map(const LidarFrame& frame) {
             // If the ray hit something, mark the cell at the hit point.
             if (has_hit) {
                 const Cell hit = grid.cell_at(Position{
-                    units::Length(ox + dx * ray_dist),
-                    units::Length(oy + dy * ray_dist),
-                    units::Length(oz + dz * ray_dist)});
+                    (ox + dx * ray_dist) * units::cm,
+                    (oy + dy * ray_dist) * units::cm,
+                    (oz + dz * ray_dist) * units::cm});
                 if (grid.in_bounds(hit)) {
                     if (map_.get_cell(hit) == voxel::kUnmapped)
                         map_.set_cell(hit, voxel::kOccupied);
@@ -220,16 +220,16 @@ void Drone::enqueue_move_to_neighbor(Cell from, Cell to) {
     const int dx = to.x - from.x;
     const int dy = to.y - from.y;
     const int dz = to.z - from.z;
-    const double cs = map_.grid().cell_size().in_cm();
+    const double cs = map_.grid().cell_size().numerical_value_in(units::cm);
 
     if (dz != 0 && dx == 0 && dy == 0) {
         DroneCommand c;
         c.kind = DroneCommand::Kind::Elevate;
-        c.length = units::Length(static_cast<double>(dz) * cs);
+        c.length = static_cast<double>(dz) * cs * units::cm;
         pending_moves_.push_back(c);
         // Optimistic position update so subsequent planning steps in the
         // same path use the right reference.
-        last_position_.z = last_position_.z + units::Length(static_cast<double>(dz) * cs);
+        last_position_.z = last_position_.z + static_cast<double>(dz) * cs * units::cm;
         return;
     }
 
@@ -240,27 +240,27 @@ void Drone::enqueue_move_to_neighbor(Cell from, Cell to) {
     else if (dx == -1 && dy ==  0) target_yaw_deg = 180.0;
     else if (dx ==  0 && dy == -1) target_yaw_deg = 270.0;
 
-    double delta = signed_delta_deg(yaw_known_.in_deg(), target_yaw_deg);
-    const double max_rot = cfg_.max_rotate_per_cmd.in_deg();
+    double delta = signed_delta_deg(yaw_known_.numerical_value_in(units::deg), target_yaw_deg);
+    const double max_rot = cfg_.max_rotate_per_cmd.numerical_value_in(units::deg);
     while (std::abs(delta) > 1e-6) {
         const double chunk = std::min(std::abs(delta), max_rot);
         DroneCommand c;
         c.kind = DroneCommand::Kind::Rotate;
         c.rot_dir = (delta > 0.0) ? RotateDirection::Right : RotateDirection::Left;
-        c.angle = units::Angle(chunk);
+        c.angle = chunk * units::deg;
         pending_moves_.push_back(c);
         delta -= std::copysign(chunk, delta);
     }
-    yaw_known_ = units::Angle(target_yaw_deg).normalized();
+    yaw_known_ = units::normalized(target_yaw_deg * units::deg);
 
     DroneCommand adv;
     adv.kind = DroneCommand::Kind::Advance;
-    adv.length = units::Length(cs);
+    adv.length = cs * units::cm;
     pending_moves_.push_back(adv);
 
     // Optimistic position update.
-    last_position_.x = last_position_.x + units::Length(static_cast<double>(dx) * cs);
-    last_position_.y = last_position_.y + units::Length(static_cast<double>(dy) * cs);
+    last_position_.x = last_position_.x + static_cast<double>(dx) * cs * units::cm;
+    last_position_.y = last_position_.y + static_cast<double>(dy) * cs * units::cm;
 }
 
 void Drone::plan_next_target() {
@@ -322,7 +322,7 @@ DroneCommand Drone::next_command() {
 
 void Drone::on_location(Position p, units::Angle yaw) {
     last_position_ = p;
-    yaw_known_     = yaw.normalized();
+    yaw_known_     = units::normalized(yaw);
     if (state_ == State::NeedLocation) {
         // Mark the current cell as known empty so the BFS frontier
         // can grow from here.

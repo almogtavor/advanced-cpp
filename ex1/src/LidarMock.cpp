@@ -15,11 +15,11 @@ int LidarMock::compute_grid_side() const {
     // the resolution at lidar_max_range, then divide the visible square
     // side at that distance by it to obtain the grid side count.
     const auto& cfg = world_.drone_config;
-    const double d1 = cfg.lidar_res_dist_a.in_cm();
-    const double s1 = cfg.lidar_res_side_a.in_cm();
-    const double d2 = cfg.lidar_res_dist_b.in_cm();
-    const double s2 = cfg.lidar_res_side_b.in_cm();
-    const double max_d = cfg.lidar_max_range.in_cm();
+    const double d1 = cfg.lidar_res_dist_a.numerical_value_in(units::cm);
+    const double s1 = cfg.lidar_res_side_a.numerical_value_in(units::cm);
+    const double d2 = cfg.lidar_res_dist_b.numerical_value_in(units::cm);
+    const double s2 = cfg.lidar_res_side_b.numerical_value_in(units::cm);
+    const double max_d = cfg.lidar_max_range.numerical_value_in(units::cm);
 
     double res_at_max;
     if (d2 == d1) {
@@ -30,7 +30,7 @@ int LidarMock::compute_grid_side() const {
     }
     if (res_at_max <= 0.0) res_at_max = 1.0;
 
-    const double half_fov_rad = (cfg.lidar_fov.in_rad()) / 2.0;
+    const double half_fov_rad = units::to_rad(cfg.lidar_fov) / 2.0;
     const double visible_side = 2.0 * max_d * std::tan(half_fov_rad);
     int side = static_cast<int>(std::round(visible_side / res_at_max));
     if (side < 3) side = 3;        // ensure at least a tiny grid
@@ -42,8 +42,8 @@ int LidarMock::compute_grid_side() const {
 double LidarMock::cast_ray(double x_cm, double y_cm, double z_cm,
                            double dx, double dy, double dz) const {
     const auto& grid = world_.truth.grid();
-    const double cs   = grid.cell_size().in_cm();
-    const double max_d = world_.drone_config.lidar_max_range.in_cm();
+    const double cs   = grid.cell_size().numerical_value_in(units::cm);
+    const double max_d = world_.drone_config.lidar_max_range.numerical_value_in(units::cm);
 
     // Step in small increments. Half a cell side keeps us from skipping
     // thin walls without slowing the simulation too much.
@@ -54,7 +54,7 @@ double LidarMock::cast_ray(double x_cm, double y_cm, double z_cm,
         const double cy = y_cm + dy * t;
         const double cz = z_cm + dz * t;
         const Cell c = grid.cell_at(Position{
-            units::Length(cx), units::Length(cy), units::Length(cz)});
+            cx * units::cm, cy * units::cm, cz * units::cm});
         if (!grid.in_bounds(c)) return -1.0; // ran past the world
         if (grid.get(c) == voxel::kOccupied) {
             return t; // hit at this distance
@@ -74,13 +74,13 @@ LidarFrame LidarMock::scan(units::Angle xy_offset, units::Angle pitch_offset) {
     frame.distance_cm.assign(static_cast<std::size_t>(frame.side) * frame.side, -1.0);
 
     // Direction the lidar is pointing in (yaw + pitch in degrees).
-    const double yaw_deg   = (world_.yaw + xy_offset).normalized().in_deg();
-    const double pitch_deg = pitch_offset.in_deg();
+    const double yaw_deg   = units::normalized(world_.yaw + xy_offset).numerical_value_in(units::deg);
+    const double pitch_deg = pitch_offset.numerical_value_in(units::deg);
     const double yaw_rad   = yaw_deg * kPi / 180.0;
     const double pitch_rad = pitch_deg * kPi / 180.0;
 
-    const double half_fov = cfg.lidar_fov.in_rad() / 2.0;
-    const double min_d    = cfg.lidar_min_range.in_cm();
+    const double half_fov = units::to_rad(cfg.lidar_fov) / 2.0;
+    const double min_d    = cfg.lidar_min_range.numerical_value_in(units::cm);
 
     // Build local right/up vectors so we can offset rays inside the cone.
     const double fwd_x = std::cos(pitch_rad) * std::cos(yaw_rad);
@@ -95,9 +95,9 @@ LidarFrame LidarMock::scan(units::Angle xy_offset, units::Angle pitch_offset) {
     const double up_y = -std::sin(pitch_rad) * std::sin(yaw_rad);
     const double up_z =  std::cos(pitch_rad);
 
-    const double origin_x = world_.position.x.in_cm();
-    const double origin_y = world_.position.y.in_cm();
-    const double origin_z = world_.position.z.in_cm();
+    const double origin_x = world_.position.x.numerical_value_in(units::cm);
+    const double origin_y = world_.position.y.numerical_value_in(units::cm);
+    const double origin_z = world_.position.z.numerical_value_in(units::cm);
 
     const int side = frame.side;
     const int center = side / 2;
