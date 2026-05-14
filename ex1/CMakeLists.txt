@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 project(drone_mapper LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -7,11 +7,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -Werror -pedantic)
 
-# --- mp-units (bundled in third_party/) ---
-set(MP_UNITS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/mp-units/src)
-add_compile_definitions(gsl_FEATURE_GSL_COMPATIBILITY_MODE=1)
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+# mp-units is resolved via the build environment (vcpkg manifest mode picks
+# up vcpkg.json automatically when CMAKE_TOOLCHAIN_FILE points at vcpkg).
+find_package(mp-units CONFIG REQUIRED)
 
 set(LIB_SOURCES
     src/VoxelGrid.cpp
@@ -25,18 +23,12 @@ set(LIB_SOURCES
 )
 
 add_library(drone_mapper_lib STATIC ${LIB_SOURCES})
-target_include_directories(drone_mapper_lib PUBLIC
-    include
-    ${MP_UNITS_DIR}/core/include
-    ${MP_UNITS_DIR}/systems/si/include
-    ${MP_UNITS_DIR}/systems/isq/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/gsl-lite/include
-)
+target_include_directories(drone_mapper_lib PUBLIC include)
+target_link_libraries(drone_mapper_lib PUBLIC mp-units::mp-units)
 
 add_executable(drone_mapper src/main.cpp)
 target_link_libraries(drone_mapper PRIVATE drone_mapper_lib)
 
-# --- Tests ---
 add_executable(run_tests tests/test_main.cpp)
 target_include_directories(run_tests PRIVATE tests)
 target_link_libraries(run_tests PRIVATE drone_mapper_lib)

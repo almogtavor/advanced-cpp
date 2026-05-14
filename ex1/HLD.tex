@@ -7,6 +7,8 @@
 \usepackage{titlesec}
 \usepackage{xcolor}
 \usepackage{float}
+\usepackage{amsmath}
+\setlength{\headheight}{15pt}
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -97,17 +99,29 @@ drone's known map (since most cells start as ``unmapped''). We chose a dense
 grid for simplicity and because the building sizes in exercise~1 are small
 enough that memory is not a concern.
 
-\subsection{3.3 Full Lidar Frame Back-Projection}
+\subsection{3.3 Lidar Beam Geometry (Circles of Beams)}
 
-Initially we used only the central ray of each cardinal scan to update the map.
-This left corner cells unmapped and produced scores around 96\%. We improved
-to back-projecting \emph{every} ray in the lidar frame to world coordinates,
-walking each ray through the voxel grid and marking cells accordingly. This
-raised scores to 99\%+ and reduced command counts by 60\%.
+The lidar follows the assignment specification's beam geometry:
+\begin{itemize}[nosep]
+\item \textbf{Circle 0} is a single central beam fired along the scan centerline.
+\item \textbf{Circles 1..FOVC-1} are concentric rings of $4^k$ evenly-spaced
+      beams. Ring $k$ has radius $k\cdot D$ at distance Z-min, so its cone
+      half-angle is $\arctan(k\cdot D / \text{Z-min})$.
+\item Each beam reports: distance to the closest hit if $\ge$ Z-min,
+      \texttt{0} if the hit is closer than Z-min (per spec), and \texttt{-1}
+      if no hit occurred within Z-max (kept so the mock can return one
+      record per emitted beam as allowed by the Ex1 clarification).
+\end{itemize}
 
-\textbf{Trade-off:} The full frame approach is $O(n^2)$ per scan (where $n$
-is the lidar grid side), but with our capped grid size ($\le 51 \times 51$)
-and only 6 scans per waypoint, the overhead is negligible.
+After every scan the drone back-projects each beam's direction (azimuth +
+elevation relative to the centerline) into world space, walks the voxel
+cells along the ray, marks intermediate cells \texttt{kEmpty}, and marks
+the hit cell \texttt{kOccupied} when the beam terminates on an obstacle.
+
+\textbf{Alternative considered:} An axis-aligned ray matrix (one ray per
+$(\text{row}, \text{col})$ in a square grid covering the FOV). It was simpler
+to implement but diverges from the spec's explicit ring geometry; we replaced
+it once the spec required FOVC/D-driven beam counts.
 
 \subsection{3.4 Frontier-Based BFS Exploration}
 
@@ -131,20 +145,32 @@ mp-units and provides \texttt{Length} and \texttt{Angle} type aliases plus
 This keeps downstream code concise (\texttt{5.0 * cm}, \texttt{90.0 * deg})
 while mp-units enforces dimensional safety at compile time.
 
-The mp-units and gsl-lite header files are bundled under
-\texttt{third\_party/} so that the submission is self-contained and
-compiles without requiring these libraries to be pre-installed on the
-build machine.
+mp-units is resolved through the course's vcpkg toolchain
+(\texttt{vcpkg.json} declares the dependency; the CMake build calls
+\texttt{find\_package(mp-units CONFIG REQUIRED)}). This matches the
+build setup used by the teacher's reference \texttt{example\_mock\_lidar}
+project. gsl-lite is pulled in transitively by mp-units.
 
-\subsection{3.6 Polygon Boundary Support}
+\subsection{3.6 Rectangle Boundary and Single-Resolution Policy}
 
-The mission boundary is defined as an arbitrary polygon (supporting concave
-shapes like L-buildings). We use the standard ray-casting point-in-polygon
-algorithm to classify each voxel during \texttt{BuildingMap} initialization.
+Per the assignment spec, the mission boundary is a bounded rectangle
+(\texttt{min\_x}, \texttt{max\_x}, \texttt{min\_y}, \texttt{max\_y}) combined
+with a vertical range (\texttt{height\_min}, \texttt{height\_max}). The
+\texttt{BuildingMap} constructor pre-marks every cell whose center falls
+outside this volume as \texttt{kOutOfBounds} (-2), so the scoring stage and
+the drone's exploration both naturally ignore those cells.
 
-\textbf{Alternative considered:} Axis-aligned bounding box (simpler, but cannot
-represent non-rectangular buildings). We chose polygon support since the
-assignment explicitly mentions ``polygon of \{X, Y\}''.
+The mission also declares the requested mapping resolution
+(\texttt{xy\_resolution\_cm}, \texttt{height\_resolution\_cm}). Per the Ex1
+resolution clarification, we support a single resolution: the one used by
+the input map (its \texttt{cell\_size}). If the requested resolution does
+not match, the program prints a clear error and exits via \texttt{main}
+without running the simulation.
+
+\textbf{Note on drone shape:} The assignment's Ex1 clarification states the
+drone may be modeled as a perfect sphere, which means rotation is
+collision-free without environment checks. Our movement mock relies on
+this: rotations only update yaw and never test the surrounding voxels.
 
 \subsection{3.7 Floating-Point Position Snapping}
 
@@ -179,15 +205,15 @@ from a single \texttt{main()}.
 \hline
 Unit types & test\_units.cpp (4) & Length/Angle construction, arithmetic, normalization, radian conversion \\
 Spatial data & test\_voxel\_grid.cpp (4) & Set/get, out-of-bounds, continuous-to-cell conversion, origin offset \\
-Known map & test\_building\_map.cpp (2) & Polygon boundary marking, height-range filtering \\
-Config I/O & test\_config\_parser.cpp (4) & Full parse, unknown key recovery, polygon vertices, missing file \\
+Known map & test\_building\_map.cpp (2) & Rectangle boundary marking, height-range filtering \\
+Config I/O & test\_config\_parser.cpp (4) & Drone capabilities parse, unknown key recovery, mission rectangle, missing file \\
 Map I/O & test\_map\_io.cpp (3) & Load truth, round-trip save/load, missing file \\
-Lidar mock & test\_lidar\_mock.cpp (2) & Central ray hit in corridor, open-direction returns $-1$ \\
+Lidar mock & test\_lidar\_mock.cpp (3) & Central beam hits end wall, total beam count matches $1+\sum 4^k$, open-direction returns $-1$ \\
 Movement mock & test\_movement\_mock.cpp (4) & Advance direction, rotate yaw, wall collision, max clamping \\
 Drone logic & test\_drone.cpp (2) & Initial GetLocation command, scan sequence after location \\
 Integration & test\_simulator.cpp (2) & Full simulation of small room ($\ge$80\% score); sealed pocket (no collision) \\
 \hline
-& \textbf{Total: 27 tests} &
+& \textbf{Total: 28 tests} &
 \end{tabular}
 \end{center}
 
@@ -215,8 +241,10 @@ Three input sets exercise different scenarios:
 \item \textbf{set1} -- Simple 10$\times$10 empty room (baseline correctness).
 \item \textbf{set2} -- 15$\times$12 building with a sealed 3$\times$3 pocket
       (tests that inaccessible areas remain unmapped without crashing).
-\item \textbf{set3} -- L-shaped building with non-convex polygon boundary
-      (tests polygon clipping and multi-arm exploration).
+\item \textbf{set3} -- L-shaped truth map within a $150\times150$ rectangle
+      (tests that the rectangle boundary plus the spec's resolution policy
+      correctly leave the non-L portion as unmapped, since the drone cannot
+      reach it).
 \end{enumerate}
 
 \end{document}

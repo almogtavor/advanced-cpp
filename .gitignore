@@ -10,6 +10,7 @@ build/
 *.log
 *.out
 *.synctex.gz
+out/
 
 # Generated PNGs (keep PDFs)
 *.png

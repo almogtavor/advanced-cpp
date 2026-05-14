@@ -22,11 +22,11 @@ Bonus features implemented:
      tests/test_map_io.cpp, tests/test_lidar_mock.cpp,
      tests/test_movement_mock.cpp, tests/test_drone.cpp,
      tests/test_simulator.cpp
-   - 27 tests covering: strong-type units (Length/Angle), voxel grid
-     operations, building map polygon/height filtering, config parsing
-     with error recovery, map I/O round-trip, lidar mock ray casting,
-     movement mock collision detection, drone command sequence, and full
-     simulation integration.
+   - 28 tests covering: strong-type units (Length/Angle), voxel grid
+     operations, building map rectangle/height filtering, config parsing
+     with error recovery, map I/O round-trip, lidar mock circle-of-beams
+     emission and ray casting, movement mock collision detection, drone
+     command sequence, and full simulation integration.
    - The framework provides TEST(), CHECK(), CHECK_EQ(), and CHECK_NEAR()
      macros. It uses no external libraries (the assignment forbids external
      dependencies by default; the framework is a lightweight alternative to

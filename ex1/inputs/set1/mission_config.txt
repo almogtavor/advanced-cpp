@@ -1,10 +1,12 @@
 # Mission for set1 (simple square room)
+# Bounded rectangle in the (X, Y) plane per assignment spec.
 start 25 25 5
+min_x   0
+max_x 100
+min_y   0
+max_y 100
 height_min 0
 height_max 10
-xy_decimal_places 0
-height_decimal_places 0
-polygon_vertex 0   0
-polygon_vertex 100 0
-polygon_vertex 100 100
-polygon_vertex 0   100
+# Mapping resolution must match the map's cell_size (per Ex1 clarification).
+xy_resolution_cm     10
+height_resolution_cm 10

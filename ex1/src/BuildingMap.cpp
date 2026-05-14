@@ -7,7 +7,6 @@ BuildingMap::BuildingMap(const MissionConfig& mission,
                          Position origin,
                          int nx, int ny, int nz)
     : grid_(cell_size, origin, nx, ny, nz, voxel::kOutOfBounds) {
-    // Walk all cells, marking the in-mission ones as kUnmapped.
     for (int z = 0; z < nz; ++z) {
         for (int y = 0; y < ny; ++y) {
             for (int x = 0; x < nx; ++x) {
@@ -16,14 +15,10 @@ BuildingMap::BuildingMap(const MissionConfig& mission,
                 const bool in_height =
                     center.z >= mission.height_min &&
                     center.z <= mission.height_max;
-                if (!in_height) continue;
-                if (!mission.boundary_polygon.empty()) {
-                    const bool inside = point_in_polygon(
-                        center.x.numerical_value_in(units::cm), center.y.numerical_value_in(units::cm),
-                        mission.boundary_polygon);
-                    if (!inside) continue;
-                }
-                grid_.set(c, voxel::kUnmapped);
+                const bool in_xy =
+                    center.x >= mission.min_x && center.x <= mission.max_x &&
+                    center.y >= mission.min_y && center.y <= mission.max_y;
+                if (in_height && in_xy) grid_.set(c, voxel::kUnmapped);
             }
         }
     }
@@ -35,26 +30,6 @@ int8_t BuildingMap::get(Position p) const {
 
 void BuildingMap::set(Position p, int8_t v) {
     grid_.set(grid_.cell_at(p), v);
-}
-
-bool BuildingMap::point_in_polygon(
-    double x, double y,
-    const std::vector<std::pair<units::Length, units::Length>>& poly) {
-    // Standard ray casting; count intersections with horizontal ray to +X.
-    bool inside = false;
-    const std::size_t n = poly.size();
-    if (n < 3) return true;
-    for (std::size_t i = 0, j = n - 1; i < n; j = i++) {
-        const double xi = poly[i].first.numerical_value_in(units::cm);
-        const double yi = poly[i].second.numerical_value_in(units::cm);
-        const double xj = poly[j].first.numerical_value_in(units::cm);
-        const double yj = poly[j].second.numerical_value_in(units::cm);
-        const bool crosses =
-            ((yi > y) != (yj > y)) &&
-            (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi);
-        if (crosses) inside = !inside;
-    }
-    return inside;
 }
 
 } // namespace drone

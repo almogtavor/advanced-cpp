@@ -63,100 +63,86 @@ DroneCommand Drone::build_scan_command() {
 }
 
 void Drone::apply_full_scan_to_map(const LidarFrame& frame) {
-    // Back-project every ray in the lidar frame to a world-space position.
-    // For each ray we walk the cells along the line from the drone's
-    // position to the hit point, marking them empty. If the ray hit an
-    // obstacle we mark the target cell occupied.
+    // Back-project every beam in the scan to world coordinates and walk
+    // the cells along the ray, marking empty/occupied as appropriate.
     const auto& grid = map_.grid();
     const double cs = grid.cell_size().numerical_value_in(units::cm);
     const Cell here = current_cell();
 
-    // Mark the drone's own cell as empty.
     if (map_.get_cell(here) == voxel::kUnmapped)
         map_.set_cell(here, voxel::kEmpty);
 
-    if (frame.side <= 0) return;
+    if (frame.beams.empty()) return;
 
-    const double half_fov = units::to_rad(frame.fov) / 2.0;
-    const double yaw_rad  = units::to_rad(units::normalized(yaw_known_ + frame.yaw_offset));
-    const double pitch_base = units::to_rad(frame.pitch_offset);
+    const double yaw_rad   = units::to_rad(units::normalized(yaw_known_ + frame.yaw_offset));
+    const double pitch_rad = units::to_rad(frame.pitch_offset);
 
-    // Build the same local axes used by LidarMock.
-    const double fwd_x = std::cos(pitch_base) * std::cos(yaw_rad);
-    const double fwd_y = std::cos(pitch_base) * std::sin(yaw_rad);
-    const double fwd_z = std::sin(pitch_base);
-
+    // Centerline axes (same convention as LidarMock).
+    const double fwd_x = std::cos(pitch_rad) * std::cos(yaw_rad);
+    const double fwd_y = std::cos(pitch_rad) * std::sin(yaw_rad);
+    const double fwd_z = std::sin(pitch_rad);
     const double right_x = -std::sin(yaw_rad);
     const double right_y =  std::cos(yaw_rad);
-
-    const double up_x = -std::sin(pitch_base) * std::cos(yaw_rad);
-    const double up_y = -std::sin(pitch_base) * std::sin(yaw_rad);
-    const double up_z =  std::cos(pitch_base);
+    const double up_x = -std::sin(pitch_rad) * std::cos(yaw_rad);
+    const double up_y = -std::sin(pitch_rad) * std::sin(yaw_rad);
+    const double up_z =  std::cos(pitch_rad);
 
     const double ox = last_position_.x.numerical_value_in(units::cm);
     const double oy = last_position_.y.numerical_value_in(units::cm);
     const double oz = last_position_.z.numerical_value_in(units::cm);
 
-    const int side   = frame.side;
-    const int center = side / 2;
+    const double z_max_cm = frame.z_max.numerical_value_in(units::cm);
+    const double z_min_cm = frame.z_min.numerical_value_in(units::cm);
 
-    for (int row = 0; row < side; ++row) {
-        for (int col = 0; col < side; ++col) {
-            const double dist = frame.at(row, col);
-            if (dist < -1.5) continue; // -2: too close, skip
+    for (const LidarBeam& b : frame.beams) {
+        const double azim_rad = units::to_rad(b.azimuth);
+        const double elev_rad = units::to_rad(b.elevation);
+        const double tan_e    = std::tan(elev_rad);
+        const double h_off    = std::cos(azim_rad);
+        const double v_off    = std::sin(azim_rad);
+        double dx = fwd_x + right_x * tan_e * h_off + up_x * tan_e * v_off;
+        double dy = fwd_y + right_y * tan_e * h_off + up_y * tan_e * v_off;
+        double dz = fwd_z +                           up_z * tan_e * v_off;
+        const double len = std::sqrt(dx*dx + dy*dy + dz*dz);
+        dx /= len; dy /= len; dz /= len;
 
-            const double v_frac = (row - center) / static_cast<double>(center);
-            const double h_frac = (col - center) / static_cast<double>(center);
-            const double a_h = h_frac * half_fov;
-            const double a_v = v_frac * half_fov;
+        const double dist = b.distance_cm;
+        // Walk-distance: how far along the ray we trust as empty.
+        // dist > 0: empty up to (dist-cs), then occupied at the hit cell.
+        // dist == 0: "too close" hit; we know nothing reliably (skip walk).
+        // dist < 0: no hit within z_max; walk full range as empty.
+        double walk_to;
+        bool   has_hit;
+        if (dist > 0.0) { walk_to = dist; has_hit = true; }
+        else if (dist < 0.0) { walk_to = z_max_cm; has_hit = false; }
+        else { continue; } // too close: skip (don't infer anything)
 
-            double dx = fwd_x + right_x * std::tan(a_h) + up_x * std::tan(a_v);
-            double dy = fwd_y + right_y * std::tan(a_h) + up_y * std::tan(a_v);
-            double dz = fwd_z + /* right_z=0 */ up_z * std::tan(a_v);
-            const double len = std::sqrt(dx*dx + dy*dy + dz*dz);
-            dx /= len; dy /= len; dz /= len;
-
-            bool has_hit;
-            double ray_dist;
-            if (dist < 0.0) {
-                // -1: nothing in range. Use max_range.
-                ray_dist = cfg_.lidar_max_range.numerical_value_in(units::cm);
-                has_hit = false;
-            } else {
-                ray_dist = dist;
-                has_hit = true;
+        const int steps = static_cast<int>(std::ceil(walk_to / cs));
+        Cell prev_c = here;
+        for (int s = 1; s <= steps; ++s) {
+            const double t = std::min(static_cast<double>(s) * cs, walk_to);
+            if (t < z_min_cm) continue; // below Z-min: can't measure reliably
+            const Cell c = grid.cell_at(Position{
+                (ox + dx * t) * units::cm,
+                (oy + dy * t) * units::cm,
+                (oz + dz * t) * units::cm});
+            if (c == prev_c) continue;
+            prev_c = c;
+            if (!grid.in_bounds(c)) break;
+            if (s < steps || !has_hit) {
+                if (map_.get_cell(c) == voxel::kUnmapped)
+                    map_.set_cell(c, voxel::kEmpty);
             }
+        }
 
-            // Walk along the ray in cell-sized steps and mark each cell.
-            const int steps = static_cast<int>(std::ceil(ray_dist / cs));
-            Cell prev_c = here;
-            for (int s = 1; s <= steps; ++s) {
-                const double t = std::min(static_cast<double>(s) * cs, ray_dist);
-                const Cell c = grid.cell_at(Position{
-                    (ox + dx * t) * units::cm,
-                    (oy + dy * t) * units::cm,
-                    (oz + dz * t) * units::cm});
-                if (c == prev_c) continue;
-                prev_c = c;
-                if (!grid.in_bounds(c)) break;
-
-                if (s < steps || !has_hit) {
-                    // Intermediate cell or end of a no-hit ray: empty.
-                    if (map_.get_cell(c) == voxel::kUnmapped)
-                        map_.set_cell(c, voxel::kEmpty);
-                }
-            }
-
-            // If the ray hit something, mark the cell at the hit point.
-            if (has_hit) {
-                const Cell hit = grid.cell_at(Position{
-                    (ox + dx * ray_dist) * units::cm,
-                    (oy + dy * ray_dist) * units::cm,
-                    (oz + dz * ray_dist) * units::cm});
-                if (grid.in_bounds(hit)) {
-                    if (map_.get_cell(hit) == voxel::kUnmapped)
-                        map_.set_cell(hit, voxel::kOccupied);
-                }
+        if (has_hit) {
+            const Cell hit = grid.cell_at(Position{
+                (ox + dx * walk_to) * units::cm,
+                (oy + dy * walk_to) * units::cm,
+                (oz + dz * walk_to) * units::cm});
+            if (grid.in_bounds(hit)) {
+                if (map_.get_cell(hit) == voxel::kUnmapped)
+                    map_.set_cell(hit, voxel::kOccupied);
             }
         }
     }

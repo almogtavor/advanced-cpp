@@ -81,6 +81,21 @@ int run(const fs::path& base_dir) {
 
     write_input_errors(base_dir, all_errors);
 
+    // Single-supported-resolution check (per Ex1 clarification): the
+    // requested mapping resolution must match the map cell size.
+    const auto supported = truth.grid().cell_size();
+    const double sup_cm = supported.numerical_value_in(units::cm);
+    const double req_xy = mission.xy_resolution.numerical_value_in(units::cm);
+    const double req_h  = mission.height_resolution.numerical_value_in(units::cm);
+    if (std::abs(req_xy - sup_cm) > 1e-6 || std::abs(req_h - sup_cm) > 1e-6) {
+        LOG_ERROR("Requested resolution not supported");
+        std::cerr << "FATAL: requested mapping resolution ("
+                  << req_xy << " cm xy, " << req_h << " cm height) does not "
+                  << "match the supported resolution (" << sup_cm
+                  << " cm = map cell size). Aborting per Ex1 spec.\n";
+        return 1;
+    }
+
     LOG_INFO("Starting simulation");
     drone::Simulator sim(std::move(truth), drone_cfg, mission);
     const auto report = sim.run();

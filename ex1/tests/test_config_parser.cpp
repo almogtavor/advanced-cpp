@@ -9,7 +9,6 @@ using namespace drone;
 
 namespace {
 std::string write_temp(const std::string& contents) {
-    // Use a stable name in the system temp directory.
     static int counter = 0;
     const std::string path = "/tmp/drone_mapper_test_" +
                              std::to_string(::getpid()) + "_" +
@@ -26,13 +25,10 @@ TEST(config_parser_drone_basic) {
 min_passage_width 50
 min_passage_length 60
 min_passage_height 100
-lidar_fov 90
-lidar_min_range 10
-lidar_max_range 400
-lidar_res_dist_a 100
-lidar_res_side_a 5
-lidar_res_dist_b 400
-lidar_res_side_b 20
+lidar_z_min 10
+lidar_z_max 400
+lidar_d 2.5
+lidar_fovc 5
 max_rotate_per_cmd 90
 max_advance_per_cmd 50
 max_elevate_per_cmd 50
@@ -41,46 +37,49 @@ max_elevate_per_cmd 50
     auto r = ConfigParser::load_drone_config(p, cfg);
     CHECK(r.ok);
     CHECK_NEAR(cfg.min_passage_width.numerical_value_in(units::cm), 50.0, 1e-9);
-    CHECK_NEAR(cfg.lidar_fov.numerical_value_in(units::deg), 90.0, 1e-9);
-    CHECK_NEAR(cfg.lidar_max_range.numerical_value_in(units::cm), 400.0, 1e-9);
+    CHECK_NEAR(cfg.lidar_z_min.numerical_value_in(units::cm), 10.0, 1e-9);
+    CHECK_NEAR(cfg.lidar_z_max.numerical_value_in(units::cm), 400.0, 1e-9);
+    CHECK_NEAR(cfg.lidar_d.numerical_value_in(units::cm), 2.5, 1e-9);
+    CHECK_EQ(cfg.lidar_fovc, 5);
     CHECK_NEAR(cfg.max_advance_per_cmd.numerical_value_in(units::cm), 50.0, 1e-9);
     std::remove(p.c_str());
 }
 
 TEST(config_parser_drone_unknown_key_recovers) {
     const std::string p = write_temp(R"(
-lidar_fov 60
+lidar_z_min 5
 SOMETHING_BAD 42
-lidar_max_range 200
+lidar_z_max 200
 )");
     DroneConfig cfg;
     auto r = ConfigParser::load_drone_config(p, cfg);
     CHECK(r.ok);
     CHECK(!r.errors.empty());      // an error was recorded
-    CHECK_NEAR(cfg.lidar_fov.numerical_value_in(units::deg), 60.0, 1e-9);
-    CHECK_NEAR(cfg.lidar_max_range.numerical_value_in(units::cm), 200.0, 1e-9);
+    CHECK_NEAR(cfg.lidar_z_min.numerical_value_in(units::cm), 5.0, 1e-9);
+    CHECK_NEAR(cfg.lidar_z_max.numerical_value_in(units::cm), 200.0, 1e-9);
     std::remove(p.c_str());
 }
 
-TEST(config_parser_mission_polygon) {
+TEST(config_parser_mission_rectangle) {
     const std::string p = write_temp(R"(
 start 50 50 10
+min_x 0
+max_x 100
+min_y 0
+max_y 100
 height_min 0
 height_max 100
-xy_decimal_places 0
-height_decimal_places 0
-polygon_vertex 0 0
-polygon_vertex 100 0
-polygon_vertex 100 100
-polygon_vertex 0 100
+xy_resolution_cm 10
+height_resolution_cm 10
 )");
     MissionConfig m;
     auto r = ConfigParser::load_mission_config(p, m);
     CHECK(r.ok);
-    CHECK_EQ(static_cast<int>(m.boundary_polygon.size()), 4);
+    CHECK_NEAR(m.min_x.numerical_value_in(units::cm), 0.0, 1e-9);
+    CHECK_NEAR(m.max_x.numerical_value_in(units::cm), 100.0, 1e-9);
     CHECK_NEAR(m.start.x.numerical_value_in(units::cm), 50.0, 1e-9);
-    CHECK_NEAR(m.start.y.numerical_value_in(units::cm), 50.0, 1e-9);
     CHECK_NEAR(m.height_max.numerical_value_in(units::cm), 100.0, 1e-9);
+    CHECK_NEAR(m.xy_resolution.numerical_value_in(units::cm), 10.0, 1e-9);
     std::remove(p.c_str());
 }
 

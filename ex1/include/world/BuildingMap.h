@@ -5,9 +5,9 @@
 
 namespace drone {
 
-// The drone's accumulated knowledge map. Cells inside the mission polygon
-// and within the height range start as kUnmapped (-1); cells outside the
-// polygon or outside [height_min, height_max] start as kOutOfBounds (-2).
+// The drone's accumulated knowledge map. Cells inside the mission's bounded
+// rectangle (min_x..max_x, min_y..max_y) and within [height_min, height_max]
+// start as kUnmapped (-1); cells outside start as kOutOfBounds (-2).
 //
 // During the mission the drone overwrites kUnmapped cells with kEmpty (0)
 // or kOccupied (1) based on lidar observations.
@@ -32,10 +32,6 @@ public:
     VoxelGrid& grid() { return grid_; }
 
 private:
-    static bool point_in_polygon(
-        double x, double y,
-        const std::vector<std::pair<units::Length, units::Length>>& poly);
-
     VoxelGrid grid_{};
 };
 

@@ -1,10 +1,10 @@
-# Mission for set2 (rectangular boundary with inaccessible pocket)
+# Mission for set2 (building with inaccessible 3x3 pocket)
 start 25 25 5
+min_x   0
+max_x 150
+min_y   0
+max_y 120
 height_min 0
 height_max 10
-xy_decimal_places 0
-height_decimal_places 0
-polygon_vertex 0   0
-polygon_vertex 150 0
-polygon_vertex 150 120
-polygon_vertex 0   120
+xy_resolution_cm     10
+height_resolution_cm 10

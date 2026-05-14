@@ -29,16 +29,6 @@ bool parse_double(const std::string& tok, double& out) {
     }
 }
 
-bool parse_int(const std::string& tok, int& out) {
-    try {
-        std::size_t consumed = 0;
-        out = std::stoi(tok, &consumed);
-        return consumed == tok.size();
-    } catch (...) {
-        return false;
-    }
-}
-
 // Splits "key v1 v2 v3..." into key and the remaining tokens.
 bool tokenize_line(const std::string& line, std::string& key,
                    std::vector<std::string>& values) {
@@ -91,13 +81,10 @@ ParseResult ConfigParser::load_drone_config(const std::string& path,
         if      (key == "min_passage_width")    out.min_passage_width    = d * units::cm;
         else if (key == "min_passage_length")   out.min_passage_length   = d * units::cm;
         else if (key == "min_passage_height")   out.min_passage_height   = d * units::cm;
-        else if (key == "lidar_fov")            out.lidar_fov            = d * units::deg;
-        else if (key == "lidar_min_range")      out.lidar_min_range      = d * units::cm;
-        else if (key == "lidar_max_range")      out.lidar_max_range      = d * units::cm;
-        else if (key == "lidar_res_dist_a")     out.lidar_res_dist_a     = d * units::cm;
-        else if (key == "lidar_res_side_a")     out.lidar_res_side_a     = d * units::cm;
-        else if (key == "lidar_res_dist_b")     out.lidar_res_dist_b     = d * units::cm;
-        else if (key == "lidar_res_side_b")     out.lidar_res_side_b     = d * units::cm;
+        else if (key == "lidar_z_min")          out.lidar_z_min          = d * units::cm;
+        else if (key == "lidar_z_max")          out.lidar_z_max          = d * units::cm;
+        else if (key == "lidar_d")              out.lidar_d              = d * units::cm;
+        else if (key == "lidar_fovc")           out.lidar_fovc           = static_cast<int>(d);
         else if (key == "max_rotate_per_cmd")   out.max_rotate_per_cmd   = d * units::deg;
         else if (key == "max_advance_per_cmd")  out.max_advance_per_cmd  = d * units::cm;
         else if (key == "max_elevate_per_cmd")  out.max_elevate_per_cmd  = d * units::cm;
@@ -150,27 +137,30 @@ ParseResult ConfigParser::load_mission_config(const std::string& path,
                 record_error(result, "mission_config:" + std::to_string(line_no) +
                                       ": bad start coords");
             }
+        } else if (key == "min_x") {
+            if (!need_n(1)) continue;
+            double v; if (parse_double(values[0], v)) out.min_x = v * units::cm;
+        } else if (key == "max_x") {
+            if (!need_n(1)) continue;
+            double v; if (parse_double(values[0], v)) out.max_x = v * units::cm;
+        } else if (key == "min_y") {
+            if (!need_n(1)) continue;
+            double v; if (parse_double(values[0], v)) out.min_y = v * units::cm;
+        } else if (key == "max_y") {
+            if (!need_n(1)) continue;
+            double v; if (parse_double(values[0], v)) out.max_y = v * units::cm;
         } else if (key == "height_min") {
             if (!need_n(1)) continue;
             double v; if (parse_double(values[0], v)) out.height_min = v * units::cm;
         } else if (key == "height_max") {
             if (!need_n(1)) continue;
             double v; if (parse_double(values[0], v)) out.height_max = v * units::cm;
-        } else if (key == "xy_decimal_places") {
+        } else if (key == "xy_resolution_cm") {
             if (!need_n(1)) continue;
-            int v; if (parse_int(values[0], v)) out.xy_decimal_places = v;
-        } else if (key == "height_decimal_places") {
+            double v; if (parse_double(values[0], v)) out.xy_resolution = v * units::cm;
+        } else if (key == "height_resolution_cm") {
             if (!need_n(1)) continue;
-            int v; if (parse_int(values[0], v)) out.height_decimal_places = v;
-        } else if (key == "polygon_vertex") {
-            if (!need_n(2)) continue;
-            double x, y;
-            if (parse_double(values[0], x) && parse_double(values[1], y)) {
-                out.boundary_polygon.emplace_back(x * units::cm, y * units::cm);
-            } else {
-                record_error(result, "mission_config:" + std::to_string(line_no) +
-                                      ": bad polygon_vertex");
-            }
+            double v; if (parse_double(values[0], v)) out.height_resolution = v * units::cm;
         } else if (key == "recharge") {
             if (!need_n(3)) continue;
             double x, y, z;
@@ -185,9 +175,15 @@ ParseResult ConfigParser::load_mission_config(const std::string& path,
         }
     }
 
-    if (out.boundary_polygon.size() < 3) {
+    if (out.max_x < out.min_x) {
         record_error(result,
-            "mission_config: polygon has fewer than 3 vertices, boundary disabled");
+            "mission_config: max_x < min_x, swapping");
+        std::swap(out.min_x, out.max_x);
+    }
+    if (out.max_y < out.min_y) {
+        record_error(result,
+            "mission_config: max_y < min_y, swapping");
+        std::swap(out.min_y, out.max_y);
     }
     if (out.height_max < out.height_min) {
         record_error(result,

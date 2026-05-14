@@ -9,23 +9,25 @@
 
 ## Building
 
-### With Make (recommended for submission)
+### With CMake + vcpkg (recommended, matches the course environment)
 
 ```bash
-make          # builds drone_mapper executable
-make clean    # removes all object files and executables
+cmake --preset default      # or: cmake -B build -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+cmake --build build
 ```
 
-### With CMake
+`vcpkg.json` declares `mp-units` as a manifest dependency, so vcpkg fetches
+and builds it on first configure. This mirrors the teacher's
+`example_mock_lidar` setup.
+
+### With Make (mp-units must be installed on the host)
 
 ```bash
-cmake -B build && cmake --build build
+make                                     # if mp-units is in the default include path
+make MP_UNITS_INC=$VCPKG_ROOT/installed/x64-linux/include   # explicit path
 ```
 
 Requires gcc 11.4+ with `-std=c++20 -Wall -Wextra -Werror -pedantic`.
-
-The mp-units and gsl-lite dependencies are bundled under `third_party/` and
-resolved automatically by the Makefile and CMake.
 
 ## Running
 
@@ -59,13 +61,10 @@ Key-value pairs, one per line. Lines starting with `#` are comments.
 min_passage_width      30      smallest width the drone will enter (cm)
 min_passage_length     30      smallest length (cm)
 min_passage_height     50      smallest height (cm)
-lidar_fov              60      field of view angle (degrees)
-lidar_min_range        5       minimum detectable distance (cm)
-lidar_max_range        200     maximum detectable distance (cm)
-lidar_res_dist_a       50      first reference distance for resolution (cm)
-lidar_res_side_a       5       cell side length at that distance (cm)
-lidar_res_dist_b       200     second reference distance (cm)
-lidar_res_side_b       20      cell side length at that distance (cm)
+lidar_z_min            5       Z-min: minimum measurable distance (cm)
+lidar_z_max            200     Z-max: maximum range (cm)
+lidar_d                2       D: spacing between consecutive beam circles at Z-min (cm)
+lidar_fovc             4       FOVC: number of beam circles (1 -> central beam only)
 max_rotate_per_cmd     180     max rotation per command (degrees)
 max_advance_per_cmd    100     max horizontal move per command (cm)
 max_elevate_per_cmd    100     max vertical move per command (cm)
@@ -75,18 +74,22 @@ Missing or invalid keys fall back to built-in defaults. Unknown keys are logged 
 
 ### mission_config.txt
 
-Key-value pairs. Multiple `polygon_vertex` lines define the mapping boundary.
+Key-value pairs. The mapping boundary is the bounded rectangle
+`[min_x, max_x] x [min_y, max_y]` combined with `[height_min, height_max]`.
+The requested mapping resolution must match the map's `cell_size` (the
+single supported resolution per the Ex1 clarification); a mismatch is a
+fatal error.
 
 ```
 start 25 25 5                 # initial position (x y z in cm)
+min_x 0                       # rectangle boundary in the XY plane (cm)
+max_x 100
+min_y 0
+max_y 100
 height_min 0                  # lower height limit (cm)
 height_max 100                # upper height limit (cm)
-xy_decimal_places 0           # output resolution hint
-height_decimal_places 0
-polygon_vertex 0 0            # one vertex per line (x y in cm)
-polygon_vertex 100 0
-polygon_vertex 100 100
-polygon_vertex 0 100
+xy_resolution_cm 10           # must equal map cell_size
+height_resolution_cm 10
 ```
 
 ### map_input.txt / map_output.txt
@@ -152,9 +155,10 @@ All values and APIs use the mp-units library as required by the assignment.
 The wrapper header `include/units/Units.h` provides `Length` and `Angle` type
 aliases and brings `cm`, `m`, `deg` into the `units` namespace.
 `5.0 * cm`, `90.0 * deg`, `1.0 * m` all produce strong quantity types.
-The mp-units (v2.0.0) and gsl-lite header files are bundled under `third_party/`
-so that the submission is self-contained and compiles without requiring these
-libraries to be pre-installed on the build machine.
+The mp-units dependency is resolved through the course's vcpkg toolchain
+(see `vcpkg.json`); the CMake build calls `find_package(mp-units CONFIG
+REQUIRED)` and links `mp-units::mp-units`. gsl-lite is pulled in
+transitively by mp-units.
 
 ## Algorithm overview
 

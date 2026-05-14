@@ -1,16 +1,16 @@
-# Plain Makefile alternative to the CMake build. Either one works on
-# Linux with gcc 11.4 or above.
+# Plain Makefile build. Requires mp-units to be discoverable by the
+# compiler -- e.g. installed via the course's vcpkg toolchain, brew, or
+# apt. If your mp-units headers live outside the default include path,
+# set MP_UNITS_INC to the directory that contains "mp-units/...":
+#
+#   make MP_UNITS_INC=$VCPKG_ROOT/installed/x64-linux/include
+#
+# Otherwise prefer the CMake build (which uses find_package(mp-units)).
 
-CXX      ?= g++
-CXXFLAGS ?= -std=c++20 -Wall -Wextra -Werror -pedantic -O2
-MP_UNITS  := third_party/mp-units/src
-GSL_LITE  := third_party/gsl-lite/include
-INCLUDES  := -Iinclude \
-             -I$(MP_UNITS)/core/include \
-             -I$(MP_UNITS)/systems/si/include \
-             -I$(MP_UNITS)/systems/isq/include \
-             -I$(GSL_LITE) \
-             -Dgsl_FEATURE_GSL_COMPATIBILITY_MODE=1
+CXX          ?= g++
+CXXFLAGS     ?= -std=c++20 -Wall -Wextra -Werror -pedantic -O2
+MP_UNITS_INC ?=
+INCLUDES     := -Iinclude $(if $(MP_UNITS_INC),-isystem $(MP_UNITS_INC),)
 
 LIB_SRCS := \
     src/VoxelGrid.cpp \

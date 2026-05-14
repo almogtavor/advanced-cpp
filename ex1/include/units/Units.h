@@ -7,16 +7,18 @@
 // Extract: length.numerical_value_in(cm), angle.numerical_value_in(deg)
 #pragma once
 
-#include <mp-units/systems/si/si.h>
-#include <mp-units/systems/si/unit_symbols.h>
+#include <mp-units/systems/isq.h>
+#include <mp-units/systems/si.h>
+
 #include <cmath>
 
 namespace units {
 
-// Bring mp-units symbols into the units namespace for convenient use.
-using namespace mp_units::si::unit_symbols;   // m, cm, km, ...
-using mp_units::non_si::unit_symbols::deg;    // deg
-using mp_units::one;                          // dimensionless unit
+namespace si = mp_units::si;
+using si::unit_symbols::m;    // meters
+using si::unit_symbols::cm;   // centimeters
+using si::unit_symbols::deg;  // degrees
+using mp_units::one;          // dimensionless unit
 
 // Type aliases matching the assignment's surface API.
 using Length = decltype(1.0 * cm);

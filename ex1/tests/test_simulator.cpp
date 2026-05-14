@@ -7,7 +7,6 @@ using namespace units;
 namespace {
 
 BuildingTruth make_room(int nx, int ny) {
-    // Single z-layer rectangular room with walls all around.
     VoxelGrid g(10 * cm, Position{}, nx, ny, 1, voxel::kEmpty);
     for (int x = 0; x < nx; ++x) {
         g.set(Cell{x, 0, 0},      voxel::kOccupied);
@@ -22,12 +21,10 @@ BuildingTruth make_room(int nx, int ny) {
 
 MissionConfig make_mission(int nx_cm, int ny_cm) {
     MissionConfig mission;
-    mission.boundary_polygon = {
-        {0 * cm,                              0 * cm},
-        {static_cast<double>(nx_cm) * cm,    0 * cm},
-        {static_cast<double>(nx_cm) * cm,    static_cast<double>(ny_cm) * cm},
-        {0 * cm,                              static_cast<double>(ny_cm) * cm},
-    };
+    mission.min_x = 0 * cm;
+    mission.max_x = static_cast<double>(nx_cm) * cm;
+    mission.min_y = 0 * cm;
+    mission.max_y = static_cast<double>(ny_cm) * cm;
     mission.height_min = 0  * cm;
     mission.height_max = 10 * cm;
     mission.start = Position{15 * cm, 15 * cm, 5 * cm};
@@ -36,13 +33,10 @@ MissionConfig make_mission(int nx_cm, int ny_cm) {
 
 DroneConfig make_drone_cfg() {
     DroneConfig cfg;
-    cfg.lidar_fov         = 60 * deg;
-    cfg.lidar_min_range   =  1 * cm;
-    cfg.lidar_max_range   = 200 * cm;
-    cfg.lidar_res_dist_a  = 50 * cm;
-    cfg.lidar_res_side_a  =  5 * cm;
-    cfg.lidar_res_dist_b  = 200 * cm;
-    cfg.lidar_res_side_b  = 20 * cm;
+    cfg.lidar_z_min =   1 * cm;
+    cfg.lidar_z_max = 200 * cm;
+    cfg.lidar_d     =   2 * cm;
+    cfg.lidar_fovc  =   4;
     cfg.max_rotate_per_cmd  = 180 * deg;
     cfg.max_advance_per_cmd = 100 * cm;
     cfg.max_elevate_per_cmd = 100 * cm;
@@ -61,13 +55,10 @@ TEST(simulator_small_room_finishes_with_decent_score) {
 
     CHECK(report.command_count > 0);
     CHECK(!report.drone_collided);
-    // The drone maps most of a tiny room; some corner cells may stay
-    // unmapped with the cardinal-ray-only scan approach.
     CHECK(report.score >= 80.0);
 }
 
 TEST(simulator_room_with_inaccessible_pocket_does_not_collide) {
-    // 9x9 room with an internal sealed 3x3 pocket the drone cannot enter.
     BuildingTruth truth = make_room(9, 9);
     auto& g = truth.grid();
     for (int x = 4; x < 7; ++x) {
@@ -84,5 +75,5 @@ TEST(simulator_room_with_inaccessible_pocket_does_not_collide) {
     auto report = sim.run(50000);
 
     CHECK(!report.drone_collided);
-    CHECK(report.score > 50.0); // significant portion mapped
+    CHECK(report.score > 50.0);
 }

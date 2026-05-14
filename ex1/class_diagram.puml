@@ -43,7 +43,7 @@ package "Mock Implementations" {
     - world_: MockWorld&
     + scan() override
     - cast_ray()
-    - compute_grid_side()
+    -- emits Circle 0 + 4^k beams per ring
   }
 
   class PositionMock <<mock>> {
@@ -131,7 +131,7 @@ class BuildingMap {
   - grid_: VoxelGrid
   + get(Pos) / set(Pos, v)
   + get_cell(Cell) / set_cell(Cell, v)
-  - point_in_polygon()
+  -- rectangle + height boundary
 }
 
 BuildingTruth *-- VoxelGrid
@@ -156,7 +156,8 @@ class Logger <<util>> {
 class "Data Types" <<data>> {
   Position {x, y, z: Length}
   Cell {x, y, z: int}
-  LidarFrame {side, fov, distances[]}
+  LidarFrame {yaw_offset, pitch_offset, z_min, z_max, beams: LidarBeam[]}
+  LidarBeam  {circle, index, azimuth, elevation, distance_cm}
   DroneCommand {kind, angle, length}
   DroneConfig / MissionConfig
   SimulationReport {score, ...}
