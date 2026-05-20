@@ -35,13 +35,32 @@ MoveResult MovementMock::try_translate(double dx_cm, double dy_cm, double dz_cm)
     double y = world_.position.y.numerical_value_in(units::cm);
     double z = world_.position.z.numerical_value_in(units::cm);
 
+    // Per the assignment, the drone is a perfect sphere. We treat the
+    // effective radius as `clearance_cells` voxels (Chebyshev) and sweep
+    // the whole sphere along the motion path. Any occupied cell touched
+    // by the sphere is a collision.
+    const int r = std::max(0, world_.clearance_cells);
+
+    auto sphere_hits = [&](double px, double py, double pz) -> bool {
+        const Cell center = grid.cell_at(Position{
+            px * units::cm, py * units::cm, pz * units::cm});
+        for (int dz = -r; dz <= r; ++dz) {
+            for (int dy = -r; dy <= r; ++dy) {
+                for (int dx = -r; dx <= r; ++dx) {
+                    const Cell c{center.x + dx, center.y + dy, center.z + dz};
+                    if (!grid.in_bounds(c)) continue;
+                    if (grid.get(c) == voxel::kOccupied) return true;
+                }
+            }
+        }
+        return false;
+    };
+
     for (int i = 1; i <= steps; ++i) {
         const double nx = x + sx;
         const double ny = y + sy;
         const double nz = z + sz;
-        const Cell c = grid.cell_at(Position{
-            nx * units::cm, ny * units::cm, nz * units::cm});
-        if (grid.in_bounds(c) && grid.get(c) == voxel::kOccupied) {
+        if (sphere_hits(nx, ny, nz)) {
             world_.collided = true;
             return MoveResult::Collision;
         }

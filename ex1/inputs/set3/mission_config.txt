@@ -6,5 +6,5 @@ min_y   0
 max_y 150
 height_min 0
 height_max 10
-xy_resolution_cm     10
-height_resolution_cm 10
+xy_resolution     1
+height_resolution 1

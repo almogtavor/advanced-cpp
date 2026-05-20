@@ -104,8 +104,11 @@ private:
     std::deque<Cell> path_{};
     std::deque<DroneCommand> pending_moves_{};
 
-    // Bookkeeping that lets us avoid re-planning to the same dead-end.
-    int planning_failures_{0};
+    // Chebyshev-distance buffer (in voxels) around each waypoint that
+    // must be free of occupied cells for the spherical body to fit.
+    // Derived from min(min_passage_*) / 2 and the map cell size in the
+    // constructor. 0 means the drone is smaller than one cell.
+    int clearance_cells_{0};
 };
 
 } // namespace drone

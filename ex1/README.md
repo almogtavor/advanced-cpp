@@ -45,7 +45,6 @@ The program reads three input files from the given path and writes one output fi
 | `mission_config.txt` | input | Mission boundaries and start position |
 | `map_input.txt` | input | Building truth map (used only by mock sensors) |
 | `map_output.txt` | output | Drone's reconstructed map |
-| `output_map.txt` | output | Same content as `map_output.txt` (alternative name) |
 | `input_errors.txt` | output (optional) | Created only when recoverable parse errors are found |
 
 ## Input file formats
@@ -82,14 +81,18 @@ fatal error.
 
 ```
 start 25 25 5                 # initial position (x y z in cm)
+start 25 25 5 90              # ...with optional XY-angle in degrees
+                              #    (default 0 = east; 90 = south, 180 = west, 270 = north)
 min_x 0                       # rectangle boundary in the XY plane (cm)
 max_x 100
 min_y 0
 max_y 100
 height_min 0                  # lower height limit (cm)
 height_max 100                # upper height limit (cm)
-xy_resolution_cm 10           # must equal map cell_size
-height_resolution_cm 10
+xy_resolution 1               # decimal places after the dot in meter-based
+                              # output; cell_size_cm = 100 / 10^N.
+                              # N=1 -> 10 cm cells (matches the map's cell_size).
+height_resolution 1
 ```
 
 ### map_input.txt / map_output.txt
@@ -130,13 +133,16 @@ A perfect score of 100 is possible only when every in-bounds voxel is reachable 
 ## Testing
 
 ```bash
-make test          # builds and runs all 27 unit/integration tests
+make test          # builds and runs all unit/integration tests
 ```
 
 The test suite uses a custom lightweight framework (`tests/test_framework.h`)
 that requires no external libraries. Tests cover all major components: units,
 voxel grid, building map, config parsing, map I/O, mock sensors/drivers, drone
 logic, and full simulation integration.
+
+Tests are an opt-in CMake bonus. To skip them entirely (and build only the
+main binary), pass `-DBUILD_TESTS=OFF` to the CMake configure step.
 
 ## Visual simulation
 
@@ -169,12 +175,28 @@ The drone uses a deterministic frontier-based BFS exploration on the voxel grid:
 3. The drone plans a path to that frontier and follows it step by step (rotate, then advance/elevate).
 4. When no more frontier cells are reachable, the drone reports Finished.
 
+Per the assignment, the drone is modeled as a perfect sphere whose effective
+radius is `min(min_passage_width, min_passage_length, min_passage_height) / 2`.
+Both the BFS frontier search and the `MovementMock` swept collision check
+honor this radius (rounded down to whole cells, Chebyshev distance), so the
+drone refuses to plan or execute moves through openings that are too
+narrow for its body. If a collision is detected at runtime anyway, the
+simulator terminates the run with a clear `FAILURE` notice as required by
+the assignment (line 99).
+
 ## Sample input sets
 
 | Set | Scenario | Expected score |
 |-----|----------|---------------|
-| `inputs/set1/` | Simple 10x10 empty square room | ~96% |
-| `inputs/set2/` | 15x12 building with sealed inaccessible 3x3 pocket | ~97% |
-| `inputs/set3/` | L-shaped building with non-convex polygon boundary | ~98% |
+| `inputs/set1/` | Simple 10x10 empty square room | ~92% |
+| `inputs/set2/` | 15x12 building with sealed inaccessible 3x3 pocket | ~95% |
+| `inputs/set3/` | L-shaped building inside a 15x15 bounding rectangle | ~69% |
+
+The set3 number is limited by the geometry: the bounding rectangle
+includes the upper-right "notch" of the L, whose interior walls are
+occluded from the drone's lidar by the L's inner wall. Those cells are
+in-bounds per the mission configuration so they count against the score
+even though no line-of-sight exists to them. A polygon-based mission
+boundary (planned for ex2) would exclude that notch from scoring.
 
 Each set contains an `original_output/` folder with the output from our run.

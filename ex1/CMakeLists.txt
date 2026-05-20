@@ -29,9 +29,14 @@ target_link_libraries(drone_mapper_lib PUBLIC mp-units::mp-units)
 add_executable(drone_mapper src/main.cpp)
 target_link_libraries(drone_mapper PRIVATE drone_mapper_lib)
 
-add_executable(run_tests tests/test_main.cpp)
-target_include_directories(run_tests PRIVATE tests)
-target_link_libraries(run_tests PRIVATE drone_mapper_lib)
+# Tests are a bonus feature; the main binary builds and runs without them.
+# Pass -DBUILD_TESTS=OFF to skip the test runner.
+option(BUILD_TESTS "Build the run_tests executable (bonus)" ON)
+if(BUILD_TESTS)
+    add_executable(run_tests tests/test_main.cpp)
+    target_include_directories(run_tests PRIVATE tests)
+    target_link_libraries(run_tests PRIVATE drone_mapper_lib)
 
-enable_testing()
-add_test(NAME unit_tests COMMAND run_tests)
+    enable_testing()
+    add_test(NAME unit_tests COMMAND run_tests)
+endif()

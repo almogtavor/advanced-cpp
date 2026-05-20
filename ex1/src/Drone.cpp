@@ -21,7 +21,18 @@ double signed_delta_deg(double from, double to) {
 } // namespace
 
 Drone::Drone(BuildingMap& map, const DroneConfig& cfg)
-    : map_(map), cfg_(cfg) {}
+    : map_(map), cfg_(cfg) {
+    const double cs_cm = map_.grid().cell_size().numerical_value_in(units::cm);
+    const double w = cfg_.min_passage_width.numerical_value_in(units::cm);
+    const double l = cfg_.min_passage_length.numerical_value_in(units::cm);
+    const double h = cfg_.min_passage_height.numerical_value_in(units::cm);
+    const double smallest = std::min({w, l, h});
+    const double radius_cm = 0.5 * smallest;
+    if (cs_cm > 0.0) {
+        clearance_cells_ = std::max(0,
+            static_cast<int>(std::floor(radius_cm / cs_cm)));
+    }
+}
 
 Cell Drone::current_cell() const {
     return map_.grid().cell_at(last_position_);
@@ -161,8 +172,31 @@ std::vector<Cell> Drone::bfs_to_frontier(Cell start) {
     const int dy[6] = {0, 0, 1, -1, 0, 0};
     const int dz[6] = {0, 0, 0, 0, 1, -1};
 
+    // A cell is traversable iff its center is known-empty AND there is
+    // no known-occupied voxel within `clearance_cells_` (Chebyshev) of
+    // it. Unmapped neighbors are tolerated -- the lidar pass at each
+    // waypoint refines them before the drone actually moves, and the
+    // swept collision check in MovementMock will catch a wedge attempt
+    // (which now triggers a hard failure).
+    auto has_safe_clearance = [&](Cell c) {
+        const int r = clearance_cells_;
+        if (r <= 0) return true;
+        for (int dz = -r; dz <= r; ++dz) {
+            for (int dy = -r; dy <= r; ++dy) {
+                for (int dx = -r; dx <= r; ++dx) {
+                    if (dx == 0 && dy == 0 && dz == 0) continue;
+                    const Cell n{c.x + dx, c.y + dy, c.z + dz};
+                    if (!grid.in_bounds(n)) continue;
+                    if (map_.get_cell(n) == voxel::kOccupied) return false;
+                }
+            }
+        }
+        return true;
+    };
     auto is_traversable = [&](Cell c) {
-        return grid.in_bounds(c) && map_.get_cell(c) == voxel::kEmpty;
+        if (!grid.in_bounds(c)) return false;
+        if (map_.get_cell(c) != voxel::kEmpty) return false;
+        return has_safe_clearance(c);
     };
     auto has_unknown_neighbor = [&](Cell c) {
         for (int i = 0; i < 6; ++i) {
@@ -331,15 +365,11 @@ void Drone::on_scan(const LidarFrame& frame) {
 
 void Drone::on_move_result(MoveResult result) {
     if (result == MoveResult::Collision) {
-        // Drop the rest of this path and re-sync position/yaw before
-        // attempting to plan again.
+        // The Simulator now ends the run on the first collision; we still
+        // clear pending moves and mark Done so any subsequent call to
+        // next_command() returns Finished cleanly.
         pending_moves_.clear();
-        ++planning_failures_;
-        if (planning_failures_ > 100) {
-            state_ = State::Done;
-            return;
-        }
-        state_ = State::NeedLocation;
+        state_ = State::Done;
         return;
     }
     // For Ok / Clamped we trust our optimistic update made at queue time.

@@ -69,8 +69,8 @@ min_y 0
 max_y 100
 height_min 0
 height_max 100
-xy_resolution_cm 10
-height_resolution_cm 10
+xy_resolution 1
+height_resolution 1
 )");
     MissionConfig m;
     auto r = ConfigParser::load_mission_config(p, m);
@@ -79,7 +79,30 @@ height_resolution_cm 10
     CHECK_NEAR(m.max_x.numerical_value_in(units::cm), 100.0, 1e-9);
     CHECK_NEAR(m.start.x.numerical_value_in(units::cm), 50.0, 1e-9);
     CHECK_NEAR(m.height_max.numerical_value_in(units::cm), 100.0, 1e-9);
-    CHECK_NEAR(m.xy_resolution.numerical_value_in(units::cm), 10.0, 1e-9);
+    CHECK_EQ(m.xy_resolution_decimals, 1);
+    CHECK_EQ(m.height_resolution_decimals, 1);
+    // Default yaw when not specified.
+    CHECK_NEAR(m.start_yaw.numerical_value_in(units::deg), 0.0, 1e-9);
+    std::remove(p.c_str());
+}
+
+TEST(config_parser_mission_start_with_angle) {
+    const std::string p = write_temp(R"(
+start 25 25 5 90
+min_x 0
+max_x 100
+min_y 0
+max_y 100
+height_min 0
+height_max 100
+xy_resolution 1
+height_resolution 1
+)");
+    MissionConfig m;
+    auto r = ConfigParser::load_mission_config(p, m);
+    CHECK(r.ok);
+    CHECK_NEAR(m.start.x.numerical_value_in(units::cm), 25.0, 1e-9);
+    CHECK_NEAR(m.start_yaw.numerical_value_in(units::deg), 90.0, 1e-9);
     std::remove(p.c_str());
 }
 

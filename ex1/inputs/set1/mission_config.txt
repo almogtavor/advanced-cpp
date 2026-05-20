@@ -7,6 +7,7 @@ min_y   0
 max_y 100
 height_min 0
 height_max 10
-# Mapping resolution must match the map's cell_size (per Ex1 clarification).
-xy_resolution_cm     10
-height_resolution_cm 10
+# Mapping resolution: number of decimal places after the dot in meter-based
+# output (cell_size_cm = 100 / 10^N). N=1 -> 10 cm cells, matching the map.
+xy_resolution     1
+height_resolution 1

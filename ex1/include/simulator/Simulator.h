@@ -22,6 +22,16 @@ struct SimulationReport {
     long unmapped_cells{0};
     int  command_count{0};
     bool drone_collided{false};
+    // True when the simulation ended because the drone collided with an
+    // element. Per the assignment, collision is a hard failure: when this
+    // is set the main loop terminated early and the report values reflect
+    // only the partial mapping done before the crash.
+    bool failed_collision{false};
+    // Drone center position at the moment of collision, in cm. Only
+    // meaningful when failed_collision is true.
+    double collision_x_cm{0.0};
+    double collision_y_cm{0.0};
+    double collision_z_cm{0.0};
     double score{0.0};
 };
 

@@ -40,6 +40,14 @@ DroneConfig make_drone_cfg() {
     cfg.max_rotate_per_cmd  = 180 * deg;
     cfg.max_advance_per_cmd = 100 * cm;
     cfg.max_elevate_per_cmd = 100 * cm;
+    // Small-room tests below use rooms only a few cells wide, where the
+    // default 30 cm sphere wouldn't physically fit alongside walls. Use
+    // a sub-cell drone (clearance = 0) so these tests focus on the
+    // algorithm rather than passage geometry. Clearance behavior is
+    // covered separately in test_drone / test_movement_mock.
+    cfg.min_passage_width  = 5 * cm;
+    cfg.min_passage_length = 5 * cm;
+    cfg.min_passage_height = 5 * cm;
     return cfg;
 }
 

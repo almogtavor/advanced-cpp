@@ -58,3 +58,31 @@ TEST(movement_mock_advance_clamps_to_max) {
     CHECK(r == MoveResult::Clamped);
     CHECK_NEAR(world.position.x.numerical_value_in(cm), 45.0, 1e-6);
 }
+
+TEST(movement_mock_sphere_clips_neighbor) {
+    // Center cell is empty but a wall sits one cell diagonally ahead.
+    // With clearance_cells=1 (sphere occupies a 3x3 footprint), advancing
+    // into a cell whose Chebyshev-1 neighborhood touches the wall must
+    // report Collision even though the center voxel itself is free.
+    MockWorld world = build_open_world();
+    world.clearance_cells = 1;
+    // Wall at (2,2,0); drone starts at cell (1,1,0)=15,15,5. Advancing
+    // along +X would move toward cell (2,1,0), whose Chebyshev-1 hood
+    // includes (2,2,0).
+    world.truth.grid().set(Cell{2, 2, 0}, voxel::kOccupied);
+    MovementMock m(world);
+    auto r = m.advance(15 * cm);
+    CHECK(r == MoveResult::Collision);
+    CHECK(world.collided);
+}
+
+TEST(movement_mock_zero_clearance_preserves_old_behavior) {
+    // With clearance_cells=0 the sphere is sub-cell; only the center cell
+    // is checked, so a diagonal-wall scenario does NOT trigger collision.
+    MockWorld world = build_open_world();
+    world.clearance_cells = 0;
+    world.truth.grid().set(Cell{2, 2, 0}, voxel::kOccupied);
+    MovementMock m(world);
+    auto r = m.advance(15 * cm);
+    CHECK(r == MoveResult::Ok);
+}

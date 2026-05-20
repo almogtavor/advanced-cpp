@@ -31,7 +31,14 @@ Bonus features implemented:
      macros. It uses no external libraries (the assignment forbids external
      dependencies by default; the framework is a lightweight alternative to
      GTest).
-   - Build and run:  make test
+   - Build and run:
+       make test                                  (Makefile build)
+       cmake --build build --target run_tests &&  (CMake build, default ON)
+         ./build/run_tests
+   - Tests are an OPT-IN bonus in the CMake build:
+       cmake -B build -DBUILD_TESTS=OFF
+     produces only the main drone_mapper binary, so a grader can verify
+     the assignment runs without any bonus components.
    - The framework is single-translation-unit: test_main.cpp #includes all
      test source files, which are then compiled and linked against the same
      project library objects.

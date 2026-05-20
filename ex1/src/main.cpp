@@ -1,3 +1,4 @@
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -82,17 +83,22 @@ int run(const fs::path& base_dir) {
     write_input_errors(base_dir, all_errors);
 
     // Single-supported-resolution check (per Ex1 clarification): the
-    // requested mapping resolution must match the map cell size.
+    // requested mapping resolution (decimal places after the dot in
+    // meter-based output) must match the map cell size. With N decimals
+    // the cell side is 100 / 10^N cm.
     const auto supported = truth.grid().cell_size();
     const double sup_cm = supported.numerical_value_in(units::cm);
-    const double req_xy = mission.xy_resolution.numerical_value_in(units::cm);
-    const double req_h  = mission.height_resolution.numerical_value_in(units::cm);
-    if (std::abs(req_xy - sup_cm) > 1e-6 || std::abs(req_h - sup_cm) > 1e-6) {
+    const double req_xy_cm = 100.0 / std::pow(10.0, mission.xy_resolution_decimals);
+    const double req_h_cm  = 100.0 / std::pow(10.0, mission.height_resolution_decimals);
+    if (std::abs(req_xy_cm - sup_cm) > 1e-6 || std::abs(req_h_cm - sup_cm) > 1e-6) {
         LOG_ERROR("Requested resolution not supported");
         std::cerr << "FATAL: requested mapping resolution ("
-                  << req_xy << " cm xy, " << req_h << " cm height) does not "
-                  << "match the supported resolution (" << sup_cm
-                  << " cm = map cell size). Aborting per Ex1 spec.\n";
+                  << mission.xy_resolution_decimals << " xy decimals = "
+                  << req_xy_cm << " cm, "
+                  << mission.height_resolution_decimals << " height decimals = "
+                  << req_h_cm << " cm) does not match the supported "
+                  << "resolution (" << sup_cm << " cm = map cell size). "
+                  << "Aborting per Ex1 spec.\n";
         return 1;
     }
 
@@ -107,15 +113,24 @@ int run(const fs::path& base_dir) {
                   << base_dir << "\n";
         return 1;
     }
-    // Also write under the alternative name from the submission guidelines.
-    drone::MapIO::save_map(
-        (base_dir / "output_map.txt").string(), sim.known_map());
 
     LOG_INFO("Simulation complete, score=" + std::to_string(report.score) +
              " commands=" + std::to_string(report.command_count) +
-             " collided=" + (report.drone_collided ? "yes" : "no"));
+             " collided=" + (report.drone_collided ? "yes" : "no") +
+             " failed=" + (report.failed_collision ? "yes" : "no"));
 
-    std::cout << "Drone Mapper finished\n";
+    if (report.failed_collision) {
+        const std::string notice =
+            "FAILURE: drone collided during mapping at (" +
+            std::to_string(report.collision_x_cm) + ", " +
+            std::to_string(report.collision_y_cm) + ", " +
+            std::to_string(report.collision_z_cm) + ") cm";
+        LOG_ERROR(notice);
+        std::cerr << notice << "\n";
+        std::cout << notice << "\n";
+    } else {
+        std::cout << "Drone Mapper finished\n";
+    }
     std::cout << "  commands issued : " << report.command_count        << "\n";
     std::cout << "  in-bounds cells : " << report.total_in_bounds_cells << "\n";
     std::cout << "  correctly mapped: " << report.correct_cells        << "\n";
@@ -123,7 +138,7 @@ int run(const fs::path& base_dir) {
     std::cout << "  unmapped (unreachable): " << report.unmapped_cells << "\n";
     std::cout << "  collisions      : " << (report.drone_collided ? "yes" : "no") << "\n";
     std::cout << "  score           : " << report.score << " / 100\n";
-    return 0;
+    return report.failed_collision ? 1 : 0;
 }
 
 } // namespace

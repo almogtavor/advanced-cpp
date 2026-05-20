@@ -29,6 +29,16 @@ bool parse_double(const std::string& tok, double& out) {
     }
 }
 
+bool parse_int(const std::string& tok, int& out) {
+    try {
+        std::size_t consumed = 0;
+        out = std::stoi(tok, &consumed);
+        return consumed == tok.size();
+    } catch (...) {
+        return false;
+    }
+}
+
 // Splits "key v1 v2 v3..." into key and the remaining tokens.
 bool tokenize_line(const std::string& line, std::string& key,
                    std::vector<std::string>& values) {
@@ -133,6 +143,15 @@ ParseResult ConfigParser::load_mission_config(const std::string& path,
             if (parse_double(values[0], x) && parse_double(values[1], y) &&
                 parse_double(values[2], z)) {
                 out.start = Position{x * units::cm, y * units::cm, z * units::cm};
+                if (values.size() >= 4) {
+                    double angle_deg;
+                    if (parse_double(values[3], angle_deg)) {
+                        out.start_yaw = angle_deg * units::deg;
+                    } else {
+                        record_error(result, "mission_config:" + std::to_string(line_no) +
+                                              ": bad start angle (using 0)");
+                    }
+                }
             } else {
                 record_error(result, "mission_config:" + std::to_string(line_no) +
                                       ": bad start coords");
@@ -155,12 +174,24 @@ ParseResult ConfigParser::load_mission_config(const std::string& path,
         } else if (key == "height_max") {
             if (!need_n(1)) continue;
             double v; if (parse_double(values[0], v)) out.height_max = v * units::cm;
-        } else if (key == "xy_resolution_cm") {
+        } else if (key == "xy_resolution") {
             if (!need_n(1)) continue;
-            double v; if (parse_double(values[0], v)) out.xy_resolution = v * units::cm;
-        } else if (key == "height_resolution_cm") {
+            int n;
+            if (parse_int(values[0], n)) {
+                out.xy_resolution_decimals = n;
+            } else {
+                record_error(result, "mission_config:" + std::to_string(line_no) +
+                                      ": bad xy_resolution (expected integer decimal places)");
+            }
+        } else if (key == "height_resolution") {
             if (!need_n(1)) continue;
-            double v; if (parse_double(values[0], v)) out.height_resolution = v * units::cm;
+            int n;
+            if (parse_int(values[0], n)) {
+                out.height_resolution_decimals = n;
+            } else {
+                record_error(result, "mission_config:" + std::to_string(line_no) +
+                                      ": bad height_resolution (expected integer decimal places)");
+            }
         } else if (key == "recharge") {
             if (!need_n(3)) continue;
             double x, y, z;

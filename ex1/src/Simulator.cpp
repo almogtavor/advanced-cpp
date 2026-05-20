@@ -1,4 +1,8 @@
 #include "simulator/Simulator.h"
+
+#include <algorithm>
+#include <cmath>
+
 #include "util/Logger.h"
 
 namespace drone {
@@ -28,7 +32,23 @@ Simulator::Simulator(BuildingTruth truth,
       move_mock_(world_),
       drone_(known_map_, world_.drone_config) {
     world_.position = mission_.start;
-    world_.yaw      = 0 * units::deg;
+    world_.yaw      = units::normalized(mission_.start_yaw);
+
+    // Compute the spherical drone's clearance footprint once and share
+    // it with the mocks (used by MovementMock's swept collision check
+    // and by the Drone BFS).
+    {
+        const double cs_cm = world_.truth.grid().cell_size().numerical_value_in(units::cm);
+        const double w = world_.drone_config.min_passage_width.numerical_value_in(units::cm);
+        const double l = world_.drone_config.min_passage_length.numerical_value_in(units::cm);
+        const double h = world_.drone_config.min_passage_height.numerical_value_in(units::cm);
+        const double radius_cm = 0.5 * std::min({w, l, h});
+        world_.clearance_cells = (cs_cm > 0.0)
+            ? std::max(0, static_cast<int>(std::floor(radius_cm / cs_cm)))
+            : 0;
+        LOG_INFO("Drone sphere radius=" + std::to_string(radius_cm) +
+                 " cm, clearance_cells=" + std::to_string(world_.clearance_cells));
+    }
     LOG_INFO("Simulator initialized. Grid: " +
              std::to_string(world_.truth.grid().nx()) + "x" +
              std::to_string(world_.truth.grid().ny()) + "x" +
@@ -43,6 +63,21 @@ Simulator::Simulator(BuildingTruth truth,
 SimulationReport Simulator::run(int max_commands) {
     int command_count = 0;
     int safety = 0;
+    auto finish_with_collision = [&](int cc) {
+        LOG_ERROR("Drone collision at command #" + std::to_string(cc) +
+                  " pos=(" +
+                  std::to_string(world_.position.x.numerical_value_in(units::cm)) + "," +
+                  std::to_string(world_.position.y.numerical_value_in(units::cm)) + "," +
+                  std::to_string(world_.position.z.numerical_value_in(units::cm)) + ")");
+        SimulationReport report = score_against_truth();
+        report.command_count    = cc;
+        report.drone_collided   = true;
+        report.failed_collision = true;
+        report.collision_x_cm = world_.position.x.numerical_value_in(units::cm);
+        report.collision_y_cm = world_.position.y.numerical_value_in(units::cm);
+        report.collision_z_cm = world_.position.z.numerical_value_in(units::cm);
+        return report;
+    };
     while (safety++ < max_commands) {
         const DroneCommand cmd = drone_.next_command();
         ++command_count;
@@ -70,18 +105,16 @@ SimulationReport Simulator::run(int max_commands) {
                 const auto r = move_mock_.advance(cmd.length);
                 drone_.on_move_result(r);
                 if (r == MoveResult::Collision) {
-                    LOG_WARNING("Drone collision at command #" +
-                                std::to_string(command_count) +
-                                " pos=(" +
-                                std::to_string(world_.position.x.numerical_value_in(units::cm)) + "," +
-                                std::to_string(world_.position.y.numerical_value_in(units::cm)) + "," +
-                                std::to_string(world_.position.z.numerical_value_in(units::cm)) + ")");
+                    return finish_with_collision(command_count);
                 }
                 break;
             }
             case DroneCommand::Kind::Elevate: {
                 const auto r = move_mock_.elevate(cmd.length);
                 drone_.on_move_result(r);
+                if (r == MoveResult::Collision) {
+                    return finish_with_collision(command_count);
+                }
                 break;
             }
         }
