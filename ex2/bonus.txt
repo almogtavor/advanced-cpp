@@ -1,0 +1,26 @@
+Bonus features requested for Assignment 2
+==========================================
+
+1) Support for different output-resolution requests
+---------------------------------------------------
+The simulator honours the mission's optional `output_mapping_resolution_factor`
+and reports the outcome per the assignment's three states:
+
+  - factor missing / integer >= 1 : ACCEPTED, output resolution = gps_resolution
+                                     * factor (a coarser output map is produced
+                                     and saved at that resolution).
+  - factor < 1                     : IGNORED_TOO_SMALL, falls back to
+                                     gps_resolution.
+  - non-integer factor >= 1        : IGNORED, falls back to gps_resolution.
+
+The decided resolution and the request status are both written into
+simulation_output.yaml (resolution_cm and resolution_request_status), and the
+output .npy is genuinely produced at the accepted resolution.
+
+How to check:
+  ./drone_mapper_simulation_test --gtest_filter=SimulationRun.Resolution*
+  ./drone_mapper_simulation_test --gtest_filter=Integration.ResolutionFactorReflectedInReport
+
+The integration test runs a full simulation with output_mapping_resolution_factor
+= 2 and asserts the report shows ACCEPTED and an output resolution of 20cm
+(gps_resolution 10cm x 2), demonstrating a real coarser output map end to end.
