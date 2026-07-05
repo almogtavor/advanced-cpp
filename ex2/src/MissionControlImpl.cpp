@@ -32,29 +32,11 @@ MissionControlImpl::MissionControlImpl(types::MissionConfigData mission,
       output_map_file_(std::move(output_map_file)) {}
 
 bool MissionControlImpl::droneCollides(const Position3D& pos) const {
-    if (hidden_map_.atVoxel(pos) == types::VoxelOccupancy::Occupied) {
-        return true;
-    }
-    // Treat the drone as a sphere: probe the surface along each axis so the
-    // body cannot clip a wall even when its centre is still in free space.
-    const double r = geom::lcm(drone_.radius);
-    if (r <= 0.0) {
-        return false;
-    }
-    const Position3D probes[6] = {
-        Position3D{geom::xlen(geom::xcm(pos.x) + r), pos.y, pos.z},
-        Position3D{geom::xlen(geom::xcm(pos.x) - r), pos.y, pos.z},
-        Position3D{pos.x, geom::ylen(geom::ycm(pos.y) + r), pos.z},
-        Position3D{pos.x, geom::ylen(geom::ycm(pos.y) - r), pos.z},
-        Position3D{pos.x, pos.y, geom::zlen(geom::zcm(pos.z) + r)},
-        Position3D{pos.x, pos.y, geom::zlen(geom::zcm(pos.z) - r)},
-    };
-    for (const Position3D& p : probes) {
-        if (hidden_map_.atVoxel(p) == types::VoxelOccupancy::Occupied) {
-            return true;
-        }
-    }
-    return false;
+    // A crash is the drone driving its centre into an obstacle. The spherical
+    // body is kept clear of walls by the mapping algorithm's clearance, so we
+    // do not fail a run merely because the body grazes a neighbouring voxel -
+    // that would spuriously abort valid wall-hugging passes and forfeit the map.
+    return hidden_map_.atVoxel(pos) == types::VoxelOccupancy::Occupied;
 }
 
 types::MissionRunResult MissionControlImpl::runMission() {

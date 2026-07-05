@@ -28,7 +28,16 @@ SimulationRunFactoryImpl::create(const types::SimulationConfigData& simulation,
     auto hidden_map = std::make_unique<Map3DImpl>(hidden_array, hidden_config);
 
     // Output map sized to the mission bounds at the decided output resolution.
-    const types::MapConfig output_config = makeOutputMapConfig(mission);
+    types::MapConfig output_config = makeOutputMapConfig(mission);
+    // Never map finer than the source map: a sub-map-resolution output cell can
+    // sit inside a coarser occupied voxel that the finer output never fully
+    // captured, so the drone could plan its centre into a wall. Clamping the
+    // output resolution to at least the input map resolution keeps output cells
+    // aligned to the hidden map and costs nothing in accuracy (the comparison
+    // samples at the map resolution).
+    if (output_config.resolution < simulation.map_resolution) {
+        output_config.resolution = simulation.map_resolution;
+    }
     std::shared_ptr<NpyArray> output_array =
         makeOccupancyGrid(output_config, types::VoxelOccupancy::Unmapped);
     auto output_map = std::make_unique<Map3DImpl>(output_array, output_config);

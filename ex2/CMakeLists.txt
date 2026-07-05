@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.15)
 project(drone_mapper LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 
+# Default to an optimized build. mp-units is extremely slow when compiled
+# without optimization, so an unconfigured (implicitly -O0) build makes the
+# simulator orders of magnitude slower. Release keeps single-mission runtimes
+# well within the assignment's time budget.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
 
 find_package(mp-units CONFIG REQUIRED)
 find_package(tinynpy CONFIG REQUIRED)
