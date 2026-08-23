@@ -49,10 +49,21 @@ types::SimulationResult SimulationRunImpl::run() {
     types::SimulationResult result;
     result.simulation_config = simulation_config_;
     result.mission_config = mission_config_;
-    result.resolution_request_status = decideResolution(mission_config_).status;
     result.mission_results.push_back(mission_result);
     result.output_map_file = output_map_file_;
     result.output_map_config = output_map_->getMapConfig();
+
+    // Resolution request status. Start from the factor-based decision, then
+    // downgrade to Ignored if the actual output resolution ended up coarser
+    // than requested (e.g. the run clamped it up to the map resolution because
+    // it does not support mapping finer than the source map). This keeps the
+    // reported status consistent with the actual output resolution.
+    const ResolutionDecision decision = decideResolution(mission_config_);
+    result.resolution_request_status = decision.status;
+    if (result.output_map_config.resolution > decision.resolution &&
+        decision.status == types::ResolutionRequestStatus::Accepted) {
+        result.resolution_request_status = types::ResolutionRequestStatus::Ignored;
+    }
 
     if (mission_result.status == types::MissionRunStatus::Error) {
         // A failed run is scored -1 (the report's error score).

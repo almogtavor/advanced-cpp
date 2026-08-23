@@ -75,9 +75,10 @@ target_include_directories(drone_mapper_simulation_test
 target_link_libraries(drone_mapper_simulation_test
     PRIVATE
         drone_mapper
-        GTest::gtest
-        GTest::gtest_main
-        GTest::gmock)
+        # gmock_main transitively provides gmock, gtest, and a main() that
+        # initialises both. Linking the single target avoids listing gtest
+        # multiple times (which triggers a duplicate-library linker warning).
+        GTest::gmock_main)
 # Point tests at the repo's test data directory.
 target_compile_definitions(drone_mapper_simulation_test
     PRIVATE DRONE_MAPPER_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")

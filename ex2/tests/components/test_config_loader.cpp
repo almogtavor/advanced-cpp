@@ -103,16 +103,16 @@ simulation_config:
 }
 
 TEST(ConfigLoader, MissingDroneKeyThrows) {
-    EXPECT_THROW(cfg::parseDroneConfig("drone_config: { max_rotate_deg: 45 }"),
+    EXPECT_THROW((void)cfg::parseDroneConfig("drone_config: { max_rotate_deg: 45 }"),
                  std::runtime_error);
 }
 
 TEST(ConfigLoader, MissingLidarKeyThrows) {
-    EXPECT_THROW(cfg::parseLidarConfig("lidar_config: { z_min_cm: 20 }"), std::runtime_error);
+    EXPECT_THROW((void)cfg::parseLidarConfig("lidar_config: { z_min_cm: 20 }"), std::runtime_error);
 }
 
 TEST(ConfigLoader, MissingMissionBoundaryThrows) {
-    EXPECT_THROW(cfg::parseMissionConfig(R"(
+    EXPECT_THROW((void)cfg::parseMissionConfig(R"(
 mission_config:
   max_steps: 100
   gps_resolution_cm: 10
@@ -121,7 +121,7 @@ mission_config:
 }
 
 TEST(ConfigLoader, WrongTopLevelKeyThrows) {
-    EXPECT_THROW(cfg::parseDroneConfig("lidar_config: {}"), std::runtime_error);
+    EXPECT_THROW((void)cfg::parseDroneConfig("lidar_config: {}"), std::runtime_error);
 }
 
 TEST(ConfigLoader, LoadsCompositionFromFile) {
@@ -147,5 +147,5 @@ TEST(ConfigLoader, CompositionCartesianDimensionsCorrect) {
 }
 
 TEST(ConfigLoader, MissingFileThrows) {
-    EXPECT_THROW(cfg::loadComposition(dataFile("does_not_exist.yaml")), std::exception);
+    EXPECT_THROW((void)cfg::loadComposition(dataFile("does_not_exist.yaml")), std::exception);
 }
