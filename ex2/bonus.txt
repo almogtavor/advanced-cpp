@@ -4,23 +4,40 @@ Bonus features requested for Assignment 2
 1) Support for different output-resolution requests
 ---------------------------------------------------
 The simulator honours the mission's optional `output_mapping_resolution_factor`
-and reports the outcome per the assignment's three states:
+and reports the outcome in simulation_output.yaml via `resolution_cm` (the
+actual output resolution) and `resolution_request_status`, per the assignment's
+three states:
 
-  - factor missing / integer >= 1 : ACCEPTED, output resolution = gps_resolution
-                                     * factor (a coarser output map is produced
-                                     and saved at that resolution).
-  - factor < 1                     : IGNORED_TOO_SMALL, falls back to
-                                     gps_resolution.
-  - non-integer factor >= 1        : IGNORED, falls back to gps_resolution.
+  - factor < 1                    : IGNORED_TOO_SMALL (finer than GPS is not
+                                    supported); falls back to gps_resolution.
+  - non-integer factor >= 1       : IGNORED (only integer factors are honoured);
+                                    falls back to gps_resolution.
+  - integer factor >= 1, and the
+    requested resolution (gps *
+    factor) is >= the input map
+    resolution                    : ACCEPTED; a coarser output map is produced
+                                    and saved at gps_resolution * factor.
+  - integer factor >= 1, but the
+    requested resolution is finer
+    than the input map resolution : IGNORED; the simulator does not map finer
+                                    than the source map, so it clamps the output
+                                    up to the input map resolution and reports
+                                    the finer request as ignored (as the course
+                                    FAQ allows: "the simulation can decide that
+                                    it doesn't support the required resolution,
+                                    report ... ignored, and use the default
+                                    resolution that fits the mission").
 
-The decided resolution and the request status are both written into
-simulation_output.yaml (resolution_cm and resolution_request_status), and the
-output .npy is genuinely produced at the accepted resolution.
+The chosen resolution and its status are always mutually consistent (the
+reported `resolution_cm` matches what `resolution_request_status` implies), and
+the output .npy is genuinely produced at that resolution.
 
 How to check:
   ./drone_mapper_simulation_test --gtest_filter=SimulationRun.Resolution*
   ./drone_mapper_simulation_test --gtest_filter=Integration.ResolutionFactorReflectedInReport
 
 The integration test runs a full simulation with output_mapping_resolution_factor
-= 2 and asserts the report shows ACCEPTED and an output resolution of 20cm
-(gps_resolution 10cm x 2), demonstrating a real coarser output map end to end.
+= 2 (gps_resolution 10cm x 2 = 20cm, >= the 10cm map), asserts the report shows
+ACCEPTED and a real 20cm output map, demonstrating a coarser output map end to
+end. The SimulationRun.Resolution* component tests cover the ACCEPTED / IGNORED
+/ IGNORED_TOO_SMALL decisions directly.

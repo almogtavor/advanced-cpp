@@ -26,3 +26,7 @@ drone_mapper.log
 *.fdb_latexmk
 *.fls
 *.synctex*
+ex2_tests_suite155/
+tmp/
+.env
+.claude/
