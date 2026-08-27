@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "cmake: configure (debug)",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--preset", "debug"],
+      "options": { "cwd": "${workspaceFolder}/ex_3" },
+      "problemMatcher": []
+    },
+    {
+      "label": "cmake: build (debug)",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "--preset", "debug"],
+      "options": { "cwd": "${workspaceFolder}/ex_3" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"],
+      "dependsOn": "cmake: configure (debug)"
+    }
+  ]
+}

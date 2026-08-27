@@ -15,9 +15,6 @@ out/
 # Generated PNGs (keep PDFs)
 *.png
 
-# IDE
-.vscode/
-
 # Runtime logs
 drone_mapper.log
 

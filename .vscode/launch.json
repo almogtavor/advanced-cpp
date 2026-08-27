@@ -1,0 +1,65 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // macOS / LLDB. Requires the CodeLLDB extension (vadimcn.vscode-lldb).
+      // "cmake.launchTargetPath" = whatever target is selected in the
+      // CMake Tools status bar, so this works for the simulator executable
+      // whatever you end up naming it (simulator_<ids>).
+      "name": "Debug selected CMake target (lldb)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${command:cmake.launchTargetPath}",
+      "args": [
+        "-comparative",
+        "simulation=${workspaceFolder}/ex_3/inputs/sim_compose.yaml",
+        "mission_control_folder=${workspaceFolder}/ex_3/build/debug/MissionControl",
+        "algorithm=${workspaceFolder}/ex_3/build/debug/Algorithm/Algorithm_000000000_111111111.so",
+        "num_threads=1",
+        "-verbose"
+      ],
+      "cwd": "${workspaceFolder}/ex_3/inputs",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${command:cmake.launchTargetDirectory}"
+      },
+      "preLaunchTask": "cmake: build (debug)"
+    },
+    {
+      // Same thing through the Microsoft C++ extension, in case you prefer it
+      // or are inside the devcontainer (switch MIMode to "gdb" there).
+      "name": "Debug selected CMake target (cppdbg)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${command:cmake.launchTargetPath}",
+      "args": [
+        "-comparative",
+        "simulation=${workspaceFolder}/ex_3/inputs/sim_compose.yaml",
+        "mission_control_folder=${workspaceFolder}/ex_3/build/debug/MissionControl",
+        "algorithm=${workspaceFolder}/ex_3/build/debug/Algorithm/Algorithm_000000000_111111111.so",
+        "num_threads=1",
+        "-verbose"
+      ],
+      "cwd": "${workspaceFolder}/ex_3/inputs",
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "MIMode": "lldb",
+      "setupCommands": [
+        {
+          "description": "Pretty-print STL containers",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "cmake: build (debug)"
+    },
+    {
+      // Attach to an already-running simulator - handy when a deadlock or a
+      // race only shows up under num_threads>=2 and you want to inspect all
+      // thread stacks at the moment it hangs.
+      "name": "Attach to running simulator (lldb)",
+      "type": "lldb",
+      "request": "attach",
+      "pid": "${command:pickProcess}"
+    }
+  ]
+}

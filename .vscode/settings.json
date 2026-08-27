@@ -1,0 +1,16 @@
+{
+  // CMake Tools drives the build; the launch configs attach to whatever
+  // target is selected in the CMake Tools status bar.
+  "cmake.sourceDirectory": "${workspaceFolder}/ex_3",
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": true,
+  "cmake.environment": {
+    "VCPKG_ROOT": "${userHome}/vcpkg"
+  },
+  "cmake.copyCompileCommands": "${workspaceFolder}/ex_3/build/compile_commands.json",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/ex_3/build/compile_commands.json",
+  "C_Cpp.default.cppStandard": "c++20",
+  "files.associations": {
+    "*.h": "cpp"
+  }
+}
