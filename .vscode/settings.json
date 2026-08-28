@@ -3,6 +3,8 @@
   // target is selected in the CMake Tools status bar.
   "cmake.sourceDirectory": "${workspaceFolder}/ex_3",
   "cmake.useCMakePresets": "always",
+  "cmake.configurePreset": "debug",
+  "cmake.buildPreset": "debug",
   "cmake.configureOnOpen": true,
   "cmake.environment": {
     "VCPKG_ROOT": "${userHome}/vcpkg"
