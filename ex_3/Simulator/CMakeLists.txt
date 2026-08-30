@@ -2,6 +2,9 @@
 # runtime, so it needs the dl library and must export its own symbols.
 add_executable(simulator_${SUBMITTER_IDS}
     src/main.cpp
+    src/Registrar.cpp
+    src/MappingAlgorithmRegistration.cpp
+    src/MissionControlRegistration.cpp
 )
 
 target_include_directories(simulator_${SUBMITTER_IDS}
