@@ -9,11 +9,15 @@ Registrar& Registrar::instance() {
     return registrar;
 }
 
-void Registrar::add(common::MappingAlgorithmFactory factory) {
+void Registrar::registerMappingAlgorithm(
+    common::MappingAlgorithmFactory factory) {
+
     mapping_algorithms_.push_back(std::move(factory));
 }
 
-void Registrar::add(common::MissionControlFactory factory) {
+void Registrar::registerMissionControl(
+    common::MissionControlFactory factory) {
+
     mission_controls_.push_back(std::move(factory));
 }
 

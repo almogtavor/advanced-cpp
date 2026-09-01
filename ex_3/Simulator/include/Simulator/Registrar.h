@@ -1,8 +1,10 @@
 #pragma once
 
+#include "common/MappingAlgorithmFactory.h"
+#include "common/MissionControlFactory.h"
+
+#include <cstddef>
 #include <vector>
-#include "MappingAlgorithmFactory.h"
-#include "MissionControlFactory.h"
 
 namespace simulator {
 
@@ -10,16 +12,22 @@ class Registrar {
 public:
     static Registrar& instance();
 
-    void add(MappingAlgorithmFactory factory);
-    void add(MissionControlFactory factory);
+    Registrar(const Registrar&) = delete;
+    Registrar& operator=(const Registrar&) = delete;
 
-    const std::vector<MappingAlgorithmFactory>& mappingAlgorithms() const;
-    const std::vector<MissionControlFactory>& missionControls() const;
+    void registerMappingAlgorithm(common::MappingAlgorithmFactory factory);
+    void registerMissionControl(common::MissionControlFactory factory);
+
+    const std::vector<common::MappingAlgorithmFactory>& mappingAlgorithms() const;
+    const std::vector<common::MissionControlFactory>& missionControls() const;
+
+    void clear();
 
 private:
     Registrar() = default;
 
-    std::vector<MappingAlgorithmFactory> mappingAlgorithms_;
-    std::vector<MissionControlFactory> missionControls_;
+    std::vector<common::MappingAlgorithmFactory> mapping_algorithms_;
+    std::vector<common::MissionControlFactory> mission_controls_;
 };
+
 } // namespace simulator

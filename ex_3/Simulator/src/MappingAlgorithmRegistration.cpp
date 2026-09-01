@@ -1,9 +1,15 @@
+#include "common/MappingAlgorithmRegistration.h"
+#include "Simulator/Registrar.h"
+
 #include <utility>
 
-#include "Simulator/Registrar.h"
-#include "MappingAlgorithmRegistration.h"
+namespace common {
 
-common::MappingAlgorithmRegistration::MappingAlgorithmRegistration(
+MappingAlgorithmRegistration::MappingAlgorithmRegistration(
     MappingAlgorithmFactory factory) {
-    Registrar::instance().add(std::move(factory));
+
+    simulator::Registrar::instance().registerMappingAlgorithm(
+        std::move(factory));
 }
+
+} // namespace common

@@ -6,7 +6,7 @@
 namespace simulator {
 
 SharedLibrary::SharedLibrary(const std::string& path) {
-    dlerror();
+    dlerror(); // Clear previous error.
 
     handle_ = dlopen(path.c_str(), RTLD_NOW);
 
@@ -36,6 +36,7 @@ SharedLibrary& SharedLibrary::operator=(SharedLibrary&& other) noexcept {
 
         handle_ = other.handle_;
         error_ = std::move(other.error_);
+
         other.handle_ = nullptr;
     }
 

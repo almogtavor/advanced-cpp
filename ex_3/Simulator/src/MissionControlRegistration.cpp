@@ -1,9 +1,15 @@
+#include "common/MissionControlRegistration.h"
+#include "Simulator/Registrar.h"
+
 #include <utility>
 
-#include "Simulator/Registrar.h"
-#include "MissionControlRegistration.h"
+namespace common {
 
-common::MissionControlRegistration::MissionControlRegistration(
+MissionControlRegistration::MissionControlRegistration(
     MissionControlFactory factory) {
-    Registrar::instance().add(std::move(factory));
+
+    simulator::Registrar::instance().registerMissionControl(
+        std::move(factory));
 }
+
+} // namespace common
