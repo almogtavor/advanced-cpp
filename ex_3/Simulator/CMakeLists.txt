@@ -5,6 +5,7 @@ add_executable(simulator_${SUBMITTER_IDS}
     src/Registrar.cpp
     src/MappingAlgorithmRegistration.cpp
     src/MissionControlRegistration.cpp
+    src/SharedLibrary.cpp
 )
 
 target_include_directories(simulator_${SUBMITTER_IDS}

@@ -4,6 +4,8 @@
 #include "MappingAlgorithmFactory.h"
 #include "MissionControlFactory.h"
 
+namespace simulator {
+
 class Registrar {
 public:
     static Registrar& instance();
@@ -20,3 +22,4 @@ private:
     std::vector<MappingAlgorithmFactory> mappingAlgorithms_;
     std::vector<MissionControlFactory> missionControls_;
 };
+} // namespace simulator

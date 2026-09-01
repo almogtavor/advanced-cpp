@@ -1,27 +1,36 @@
+#include "Simulator/Registrar.h"
+#include "Simulator/SharedLibrary.h"
+
 #include <iostream>
-#include <string_view>
 
-
-// The singleton in the Simulator holding a std::vector<MappingAlgorithmFactory>
-class Simulator {
-public:
-    static Simulator& instance() {
-        static Simulator sim;
-        return sim;
-    }
-
-private:
-    Simulator() = default;
-};
-
-// Walking skeleton: echo the command line so we can confirm the executable
-// builds, links and runs. Argument parsing, plugin loading (dlopen) and the
-// comparative / competition run modes still have to be implemented.
 int main(int argc, char* argv[]) {
-    std::cout << "simulator_323084962_212223036\n";
-    std::cout << "argc = " << argc << '\n';
-    for (int i = 0; i < argc; ++i) {
-        std::cout << "  argv[" << i << "] = " << std::string_view{argv[i]} << '\n';
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <algorithm.so>\n";
+        return 1;
     }
+
+    // To control exactly when the .so is unloaded, we scope the SharedLibrary instance.
+    {
+        simulator::SharedLibrary library(argv[1]);
+
+        if (!library.loaded()) {
+            std::cerr << library.error() << '\n';
+            return 1;
+        }
+
+        auto& registrar = simulator::Registrar::instance();
+
+        std::cout
+            << registrar.mappingAlgorithms().size()
+            << " algorithm factory registered\n";
+
+        // Run algorithms here.
+        // Destroy every algorithm / MissionControl instance first.
+
+        // Destroy std::functions whose code lives in the .so.
+        registrar.clear();
+
+    } // NOW SharedLibrary::~SharedLibrary() calls dlclose safely.
+
     return 0;
 }
