@@ -1,4 +1,4 @@
-#include "common/MappingAlgorithmRegistration.h"
+#include <Common/MappingAlgorithmRegistration.h>
 #include "Simulator/Registrar.h"
 
 #include <utility>

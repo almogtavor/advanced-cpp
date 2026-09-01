@@ -26,6 +26,16 @@ function(drone_plugin target)
     drone_warnings(${target})
 endfunction()
 
+# Our own code shared by more than one project. Header-only, so an
+# INTERFACE library is enough - it carries the include path and nothing else.
+# Mirrors the shape of common/CMakeLists.txt.
+add_library(user_common INTERFACE)
+add_library(user_common::user_common ALIAS user_common)
+
+target_include_directories(user_common INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/UserCommon/include>
+)
+
 add_subdirectory(common)
 add_subdirectory(Algorithm)
 add_subdirectory(MissionControl)

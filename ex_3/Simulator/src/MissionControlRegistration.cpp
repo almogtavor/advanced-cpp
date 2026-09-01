@@ -1,4 +1,4 @@
-#include "common/MissionControlRegistration.h"
+#include <Common/MissionControlRegistration.h>
 #include "Simulator/Registrar.h"
 
 #include <utility>

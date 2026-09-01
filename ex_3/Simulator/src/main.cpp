@@ -1,88 +1,66 @@
-#include "Simulator/LoadedAlgorithmLibrary.h"
-#include "Simulator/Registrar.h"
-#include "Simulator/SharedLibrary.h"
+#include "Simulator/CliConfig.h"
 
 #include <iostream>
-#include <string>
-#include <utility>
-#include <vector>
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: "
-                  << argv[0]
-                  << " <algorithm1.so> [algorithm2.so ...]\n";
+    simulator::CliConfig config =
+        simulator::parseArguments(argc, argv);
+
+    if (!config.valid()) {
+        std::cerr << "Errors:\n";
+
+        for (const auto& error : config.errors) {
+            std::cerr << "  - " << error << '\n';
+        }
+
+        std::cerr << '\n';
+
+        simulator::printUsage(argv[0]);
+
         return 1;
     }
 
-    auto& registrar = simulator::Registrar::instance();
+    if (config.mode == simulator::RunMode::Comparative) {
+        std::cout << "Running comparative mode\n";
+        std::cout << "Simulation: "
+                  << config.simulation
+                  << '\n';
 
-    std::vector<simulator::LoadedAlgorithmLibrary> loaded_libraries;
+        std::cout << "MissionControl folder: "
+                  << config.mission_control_folder
+                  << '\n';
 
-    for (int i = 1; i < argc; ++i) {
-        std::string path = argv[i];
-
-        std::size_t before =
-            registrar.mappingAlgorithms().size();
-
-        simulator::SharedLibrary library(path);
-
-        if (!library.loaded()) {
-            std::cerr << "Failed to load "
-                      << path
-                      << ": "
-                      << library.error()
-                      << '\n';
-            continue;
-        }
-
-        std::size_t after =
-            registrar.mappingAlgorithms().size();
-
-        std::size_t registered =
-            after - before;
-
-        if (registered != 1) {
-            std::cerr << path
-                      << " registered "
-                      << registered
-                      << " algorithm factories instead of 1\n";
-
-            continue;
-        }
-
-        // Store the loaded library and its factory index for later use.
-        loaded_libraries.emplace_back(
-            std::move(path),
-            std::move(library),
-            before
-        );
-
-        std::cout << "Loaded "
-                  << argv[i]
-                  << ", factory index "
-                  << before
+        std::cout << "Algorithm: "
+                  << config.algorithm
                   << '\n';
     }
 
-    std::cout << registrar.mappingAlgorithms().size()
-              << " algorithm factory registered\n";
+    if (config.mode == simulator::RunMode::Competition) {
+        std::cout << "Running competition mode\n";
 
-    // -----------------------------------------
-    // Create and run algorithm instances here.
-    //
-    // Example idea:
-    //
-    // auto algorithm =
-    //     registrar.mappingAlgorithms()[factory_index](dependencies);
-    //
-    // Make sure all algorithm instances are
-    // destroyed before the cleanup below.
-    // -----------------------------------------
+        std::cout << "Simulation: "
+                  << config.simulation
+                  << '\n';
 
-    registrar.clear();
+        std::cout << "MissionControl: "
+                  << config.mission_control
+                  << '\n';
 
-    loaded_libraries.clear();
+        std::cout << "Algorithms folder: "
+                  << config.algorithms_folder
+                  << '\n';
+    }
+
+    std::cout << "Threads: "
+              << config.num_threads
+              << '\n';
+
+    std::cout << "Verbose: "
+              << (config.verbose ? "yes" : "no")
+              << '\n';
+
+    // Next phase:
+    // load all required .so files here BEFORE starting threads.
 
     return 0;
 }

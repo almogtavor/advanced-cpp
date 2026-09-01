@@ -8,7 +8,9 @@ target_include_directories(Algorithm_${SUBMITTER_IDS}
 )
 
 target_link_libraries(Algorithm_${SUBMITTER_IDS}
-    PRIVATE common::common
+    PRIVATE
+        common::common
+        user_common::user_common
 )
 
 # PREFIX ""/SUFFIX ".so" + undefined-symbol handling for the registration hook.

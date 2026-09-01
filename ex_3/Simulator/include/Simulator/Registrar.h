@@ -1,7 +1,7 @@
 #pragma once
 
-#include "common/MappingAlgorithmFactory.h"
-#include "common/MissionControlFactory.h"
+#include <Common/MappingAlgorithmFactory.h>
+#include <Common/MissionControlFactory.h>
 
 #include <cstddef>
 #include <vector>

@@ -6,6 +6,7 @@ add_executable(simulator_${SUBMITTER_IDS}
     src/MappingAlgorithmRegistration.cpp
     src/MissionControlRegistration.cpp
     src/SharedLibrary.cpp
+    src/CliConfig.cpp
 )
 
 target_include_directories(simulator_${SUBMITTER_IDS}
@@ -17,6 +18,7 @@ target_include_directories(simulator_${SUBMITTER_IDS}
 target_link_libraries(simulator_${SUBMITTER_IDS}
     PRIVATE
         common::common
+        user_common::user_common
         ${CMAKE_DL_LIBS}
 )
 
