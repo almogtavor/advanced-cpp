@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(mp-units CONFIG REQUIRED)
+find_package(tinynpy CONFIG REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 set(SUBMITTER_IDS "323084962_212223036")
 
