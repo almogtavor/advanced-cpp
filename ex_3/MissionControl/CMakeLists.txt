@@ -1,6 +1,9 @@
 # The mission control plugin, loaded by the simulator via dlopen.
 add_library(MissionControl_${SUBMITTER_IDS} SHARED
     src/MissionControlImpl.cpp
+    src/DroneControlImpl.cpp
+    ${CMAKE_SOURCE_DIR}/UserCommon/src/ErrorLog.cpp
+    ${CMAKE_SOURCE_DIR}/UserCommon/src/ScanResultToVoxels.cpp
 )
 
 target_include_directories(MissionControl_${SUBMITTER_IDS}
