@@ -99,6 +99,7 @@ void markBeamSegment(IMutableMap3D& output_map,
 
 } // namespace
 
+// takes a full lidar scan and applies it to the output map, marking voxels as empty, occupied, or potentially occupied
 void ScanResultToVoxels::applyToMap(IMutableMap3D& output_map,
                                     const Position3D& scan_origin,
                                     const Orientation& drone_heading,
