@@ -7,18 +7,34 @@ add_executable(simulator_${SUBMITTER_IDS}
     src/MissionControlRegistration.cpp
     src/SharedLibrary.cpp
     src/CliConfig.cpp
+    src/Map3DImpl.cpp
+    src/MapBuilder.cpp
+    src/ConfigLoader.cpp
+    src/MockGPS.cpp
+    src/MockLidar.cpp
+    src/MockMovement.cpp
+    src/SimulationRunImpl.cpp
+    src/SimulationRunFactoryImpl.cpp
+    src/SimulationManager.cpp
+    src/ReportWriter.cpp
+    src/MapsComparison.cpp
+    ${CMAKE_SOURCE_DIR}/UserCommon/src/ErrorLog.cpp
+    ${CMAKE_SOURCE_DIR}/UserCommon/src/ScanResultToVoxels.cpp
 )
 
 target_include_directories(simulator_${SUBMITTER_IDS}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/common_simulator/include
+        ${CMAKE_SOURCE_DIR}/MissionControl/common_mission_control/include
 )
 
 target_link_libraries(simulator_${SUBMITTER_IDS}
     PRIVATE
         common::common
         user_common::user_common
+        TinyNPY::TinyNPY
+        yaml-cpp::yaml-cpp
         ${CMAKE_DL_LIBS}
 )
 
