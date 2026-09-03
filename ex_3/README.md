@@ -83,10 +83,12 @@ a segfault.
 
 ## Threading
 
-The full work list - every (plugin x simulation x mission x drone x lidar)
-combination - is built before any thread starts, and the results vector is
-pre-sized so each task writes only its own index. There is no locking on
-results; workers pull indices from a single `std::atomic`.
+`Sweep` runs each plugin through `SimulationManager` (our implementation of the
+provided `ISimulation`). The manager builds that plugin's full work list -
+every (simulation x mission x drone x lidar) combination - before any thread
+starts, and pre-sizes the results vector so each task writes only its own index.
+There is no locking on results; workers pull indices from a single
+`std::atomic`.
 
 * `num_threads` absent or `1` - the simulation runs on the main thread only.
 * `num_threads >= 2` - that many workers *in addition to* main, so the total is
@@ -156,12 +158,12 @@ must land in separate groups.
 
 See `known_issues.xlsx` if submitted.
 
-* The provided `ISimulation` interface has no implementation. Assignment 2's
-  `SimulationManager` filled that role, but assignment 3 needs the plugin as a
-  dimension of the work list so every combination can be threaded together, and
-  `ISimulation::run` takes only a composition and an output path. `Sweep` owns
-  that job instead. `ISimulationRun` and `ISimulationRunFactory` are still
-  implemented as provided.
+* Threading is per plugin rather than across the whole plugin matrix at once:
+  `Sweep` calls `SimulationManager` once per plugin, and each call threads over
+  that plugin's (simulation x mission x drone x lidar) combinations. This keeps
+  `ISimulation` implemented as provided, at the cost of a barrier between
+  plugins - with many plugins and few missions the last threads of one plugin
+  can idle before the next begins.
 * Without `-verbose`, MissionControl errors are returned in `MissionRunResult`
   and rendered into the per-plugin YAML, but are not additionally written to a
   MissionControl-side log file.

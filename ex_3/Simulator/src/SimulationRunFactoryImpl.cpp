@@ -10,7 +10,6 @@
 
 #include <stdexcept>
 #include <utility>
-#include <iomanip>
 #include <memory>
 #include <sstream>
 
@@ -20,9 +19,11 @@ using namespace common;
 
 SimulationRunFactoryImpl::SimulationRunFactoryImpl(MappingAlgorithmFactory algorithm_factory,
                                                    MissionControlFactory mission_control_factory,
+                                                   std::string run_label,
                                                    bool verbose)
     : algorithm_factory_(std::move(algorithm_factory)),
       mission_control_factory_(std::move(mission_control_factory)),
+      run_label_(std::move(run_label)),
       verbose_(verbose) {
     if (!algorithm_factory_ || !mission_control_factory_) {
         throw std::invalid_argument("SimulationRunFactoryImpl requires both plugin factories.");
@@ -69,9 +70,8 @@ SimulationRunFactoryImpl::create(const types::SimulationConfigData& simulation,
         throw std::runtime_error("Mapping algorithm factory returned no instance.");
     }
 
-    std::ostringstream name;
-    name << "output_map_" << std::setfill('0') << std::setw(4) << next_index_++ << ".npy";
-    const std::filesystem::path output_map_file = output_path / "output_results" / name.str();
+    const std::filesystem::path output_map_file =
+        output_path / ("output_map_" + run_label_ + ".npy");
 
     std::unique_ptr<IMissionControl> mission_control =
         mission_control_factory_(MissionControlDependencies{mission,

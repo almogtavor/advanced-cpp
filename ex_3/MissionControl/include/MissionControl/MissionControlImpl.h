@@ -3,6 +3,7 @@
 #include <Common/IMissionControl.h>
 #include <Common/MissionControlFactory.h>
 #include <MissionControl/DroneControlImpl.h>
+#include <UserCommon/ErrorLog.h>
 
 #include <filesystem>
 
@@ -28,6 +29,10 @@ private:
     IMutableMap3D& output_map_;
     std::filesystem::path output_map_file_;
     bool verbose_ = false;
+    // Per-mission log, so concurrent missions never share a stream. With
+    // -verbose it is opened next to the output map; otherwise it only counts
+    // (errors also travel back in MissionRunResult, which the reports render).
+    user_common_323084962_212223036::ErrorLog log_;
     DroneControlImpl drone_control_;
 };
 

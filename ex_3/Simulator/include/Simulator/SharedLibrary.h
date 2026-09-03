@@ -9,6 +9,9 @@ public:
     explicit SharedLibrary(const std::string& path);
     ~SharedLibrary();
 
+    // so for SharedLibrary a("plugin.so");   // a.handle_ = 0x7f...
+    // SharedLibrary b = a;            // b.handle_ = 0x7f...  same value!
+    // end of scope: ~b calls dlclose(0x7f...), then ~a calls dlclose(0x7f...) again
     SharedLibrary(const SharedLibrary&) = delete;
     SharedLibrary& operator=(const SharedLibrary&) = delete;
 

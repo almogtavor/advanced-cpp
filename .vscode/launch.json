@@ -3,10 +3,9 @@
   "configurations": [
     {
       // macOS / LLDB. Requires the CodeLLDB extension (vadimcn.vscode-lldb).
-      // "cmake.launchTargetPath" = whatever target is selected in the
-      // CMake Tools status bar, so this works for the simulator executable
-      // whatever you end up naming it (simulator_<ids>).
-      "name": "Debug selected CMake target (lldb)",
+      // "cmake.launchTargetPath" = whatever target is selected in the CMake
+      // Tools status bar, so this follows your selection (simulator or tests).
+      "name": "Debug: comparative sweep (lldb)",
       "type": "lldb",
       "request": "launch",
       "program": "${command:cmake.launchTargetPath}",
@@ -14,20 +13,43 @@
         "-comparative",
         "simulation=${workspaceFolder}/ex_3/inputs/sim_compose.yaml",
         "mission_control_folder=${workspaceFolder}/ex_3/build/debug/MissionControl",
-        "algorithm=${workspaceFolder}/ex_3/build/debug/Algorithm/Algorithm_000000000_111111111.so",
+        "algorithm=${workspaceFolder}/ex_3/build/debug/Algorithm/Algorithm_323084962_212223036.so",
         "num_threads=1",
         "-verbose"
       ],
-      "cwd": "${workspaceFolder}/ex_3/inputs",
-      "env": {
-        "DYLD_LIBRARY_PATH": "${command:cmake.launchTargetDirectory}"
-      },
+      // Relative paths inside the composition resolve against this.
+      "cwd": "${workspaceFolder}/ex_3",
       "preLaunchTask": "cmake: build (debug)"
     },
     {
-      // Same thing through the Microsoft C++ extension, in case you prefer it
-      // or are inside the devcontainer (switch MIMode to "gdb" there).
-      "name": "Debug selected CMake target (cppdbg)",
+      "name": "Debug: competition sweep (lldb)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${command:cmake.launchTargetPath}",
+      "args": [
+        "-competition",
+        "simulation=${workspaceFolder}/ex_3/inputs/sim_compose.yaml",
+        "mission_control=${workspaceFolder}/ex_3/build/debug/MissionControl/MissionControl_323084962_212223036.so",
+        "algorithms_folder=${workspaceFolder}/ex_3/build/debug/Algorithm",
+        "num_threads=1"
+      ],
+      "cwd": "${workspaceFolder}/ex_3",
+      "preLaunchTask": "cmake: build (debug)"
+    },
+    {
+      // Select the simulator_tests target in the CMake Tools status bar first.
+      "name": "Debug: tests (lldb)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/ex_3/build/debug/Simulator/simulator_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/ex_3",
+      "preLaunchTask": "cmake: build (debug)"
+    },
+    {
+      // Same as the first config through the Microsoft C++ extension. Inside
+      // the devcontainer switch MIMode to "gdb".
+      "name": "Debug: comparative sweep (cppdbg)",
       "type": "cppdbg",
       "request": "launch",
       "program": "${command:cmake.launchTargetPath}",
@@ -35,11 +57,11 @@
         "-comparative",
         "simulation=${workspaceFolder}/ex_3/inputs/sim_compose.yaml",
         "mission_control_folder=${workspaceFolder}/ex_3/build/debug/MissionControl",
-        "algorithm=${workspaceFolder}/ex_3/build/debug/Algorithm/Algorithm_000000000_111111111.so",
+        "algorithm=${workspaceFolder}/ex_3/build/debug/Algorithm/Algorithm_323084962_212223036.so",
         "num_threads=1",
         "-verbose"
       ],
-      "cwd": "${workspaceFolder}/ex_3/inputs",
+      "cwd": "${workspaceFolder}/ex_3",
       "stopAtEntry": false,
       "externalConsole": false,
       "MIMode": "lldb",
@@ -53,9 +75,7 @@
       "preLaunchTask": "cmake: build (debug)"
     },
     {
-      // Attach to an already-running simulator - handy when a deadlock or a
-      // race only shows up under num_threads>=2 and you want to inspect all
-      // thread stacks at the moment it hangs.
+      // For a deadlock under num_threads>=2: attach, then `thread apply all bt`.
       "name": "Attach to running simulator (lldb)",
       "type": "lldb",
       "request": "attach",

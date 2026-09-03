@@ -6,6 +6,7 @@
 #include <Simulator/SimulationTypes.h>
 
 #include <cstddef>
+#include <string>
 
 namespace simulator {
 
@@ -17,8 +18,13 @@ using namespace common;
 // names a concrete plugin class.
 class SimulationRunFactoryImpl final : public ISimulationRunFactory {
 public:
+    // `run_label` identifies this run (plugin + simulation + mission + drone +
+    // lidar) and becomes the output map's filename, so every map traces back to
+    // the mission that produced it. One factory per run keeps naming
+    // deterministic and free of shared state across threads.
     SimulationRunFactoryImpl(MappingAlgorithmFactory algorithm_factory,
                              MissionControlFactory mission_control_factory,
+                             std::string run_label,
                              bool verbose = false);
 
     [[nodiscard]] std::unique_ptr<ISimulationRun>
@@ -31,9 +37,8 @@ public:
 private:
     MappingAlgorithmFactory algorithm_factory_;
     MissionControlFactory mission_control_factory_;
+    std::string run_label_;
     bool verbose_ = false;
-    // Sequence number used to give each run a unique output map filename.
-    std::size_t next_index_ = 0;
 };
 
 } // namespace simulator

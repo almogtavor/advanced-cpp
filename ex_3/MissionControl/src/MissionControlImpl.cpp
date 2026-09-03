@@ -5,6 +5,8 @@
 #include <UserCommon/ErrorLog.h>
 #include <UserCommon/MapGeometry.h>
 
+#include <filesystem>
+#include <string>
 #include <utility>
 
 namespace mission_control_323084962_212223036 {
@@ -35,7 +37,15 @@ MissionControlImpl_323084962_212223036::MissionControlImpl_323084962_212223036(
                      dependencies.gps,
                      dependencies.movement,
                      dependencies.output_map,
-                     dependencies.mapping_algorithm) {}
+                     dependencies.mapping_algorithm) {
+    if (verbose_) {
+        std::filesystem::path log_file = output_map_file_;
+        log_file.replace_extension();
+        log_file += "_mission_control.log";
+        log_.open(log_file);
+        log_.log("MISSION_START", "max_steps=" + std::to_string(mission_.max_steps));
+    }
+}
 
 types::MissionRunResult MissionControlImpl_323084962_212223036::runMission() {
     types::MissionRunResult result;
@@ -43,7 +53,7 @@ types::MissionRunResult MissionControlImpl_323084962_212223036::runMission() {
     if (boundsInvalid(mission_.mission_bounds)) {
         const types::ErrorRef err{kMissionBoundaryInvalidCode,
                                   "Mission boundaries are empty or inverted."};
-        globalErrorLog().log(err.code, err.message);
+        log_.log(err.code, err.message);
         result.status = types::MissionRunStatus::Error;
         result.errors.push_back(err);
         return result;
@@ -66,7 +76,7 @@ types::MissionRunResult MissionControlImpl_323084962_212223036::runMission() {
             const types::ErrorRef err{
                 collision ? kDroneHitsObstacleCode : kDroneStepErrorCode,
                 step_result.message};
-            globalErrorLog().log(err.code, err.message);
+            log_.log(err.code, err.message);
             result.status = types::MissionRunStatus::Error;
             result.errors.push_back(err);
             break;
@@ -77,13 +87,13 @@ types::MissionRunResult MissionControlImpl_323084962_212223036::runMission() {
         output_map_.save(output_map_file_);
     } catch (const std::exception& ex) {
         const types::ErrorRef err{kOutputMapSaveErrorCode, ex.what()};
-        globalErrorLog().log(err.code, err.message);
+        log_.log(err.code, err.message);
         result.status = types::MissionRunStatus::Error;
         result.errors.push_back(err);
     }
 
     if (verbose_) {
-        globalErrorLog().log("MISSION_VERBOSE",
+        log_.log("MISSION_VERBOSE",
                              "Mission finished after " + std::to_string(result.steps) +
                                  " steps; output map written to " + output_map_file_.string());
     }

@@ -14,6 +14,7 @@ add_library(simulator_lib STATIC
     src/MockMovement.cpp
     src/SimulationRunImpl.cpp
     src/SimulationRunFactoryImpl.cpp
+    src/SimulationManager.cpp
     src/ReportWriter.cpp
     src/MapsComparison.cpp
     src/Sweep.cpp

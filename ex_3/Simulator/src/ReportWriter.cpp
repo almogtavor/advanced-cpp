@@ -9,6 +9,10 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <system_error>
+
+#include <vector>
+
 namespace simulator {
 
 using namespace common;
@@ -105,6 +109,103 @@ void ReportWriter::write(const types::SimulationManagerReport& report,
         throw std::runtime_error("Failed to write report file: " + file.string());
     }
     out << toYaml(report);
+}
+
+
+namespace {
+
+// Two plugins "agree" when their totals match exactly - both the score and the
+// step count, as in the assignment's example where 495/100 and 495/101 form
+// separate groups.
+[[nodiscard]] bool sameResults(const ReportWriter::PluginTotalsView& a,
+                               const ReportWriter::PluginTotalsView& b) {
+    return a.total_score == b.total_score && a.total_steps == b.total_steps;
+}
+
+void writeOrThrow(const std::filesystem::path& file, const std::string& text) {
+    std::error_code ec;
+    std::filesystem::create_directories(file.parent_path(), ec);
+    std::ofstream out(file);
+    if (!out) {
+        throw std::runtime_error("Cannot open report file: " + file.string());
+    }
+    out << text;
+}
+
+} // namespace
+
+void ReportWriter::writeComparative(const std::filesystem::path& file,
+                                    const std::filesystem::path& composition_file,
+                                    const std::string& mission_control_folder,
+                                    const std::string& generated_at_utc,
+                                    const std::vector<PluginTotalsView>& totals,
+                                    const std::vector<std::string>& errors) {
+    // Group plugins whose results are identical.
+    std::vector<std::vector<PluginTotalsView>> groups;
+    for (const PluginTotalsView& t : totals) {
+        auto it = std::find_if(groups.begin(), groups.end(),
+                               [&](const std::vector<PluginTotalsView>& g) {
+                                   return sameResults(g.front(), t);
+                               });
+        if (it == groups.end()) {
+            groups.push_back({t});
+        } else {
+            it->push_back(t);
+        }
+    }
+    // Most agreeing managers first.
+    std::stable_sort(groups.begin(), groups.end(),
+                     [](const std::vector<PluginTotalsView>& a,
+                        const std::vector<PluginTotalsView>& b) {
+                         return a.size() > b.size();
+                     });
+
+    std::ostringstream out;
+    out << "comparative_report:\n";
+    out << "  composition_file: \"" << composition_file.string() << "\"\n";
+    out << "  mission_control_folder: \"" << mission_control_folder << "\"\n";
+    out << "  generated_at_utc: \"" << generated_at_utc << "\"\n";
+    out << "\n  results_summary:\n";
+    for (const std::vector<PluginTotalsView>& g : groups) {
+        out << "    - same_results: [";
+        for (std::size_t i = 0; i < g.size(); ++i) {
+            out << (i ? ", " : "") << '"' << g[i].name << '"';
+        }
+        out << "]\n";
+        out << "      total_score: " << g.front().total_score << "\n";
+        out << "      total_steps: " << g.front().total_steps << "\n";
+    }
+    out << "\n  errors: [";
+    for (std::size_t i = 0; i < errors.size(); ++i) {
+        out << (i ? ", " : "") << '"' << errors[i] << '"';
+    }
+    out << "]\n";
+    writeOrThrow(file, out.str());
+}
+
+void ReportWriter::writeCompetitive(const std::filesystem::path& file,
+                                    const std::filesystem::path& composition_file,
+                                    const std::string& mission_control,
+                                    const std::string& generated_at_utc,
+                                    const std::vector<PluginTotalsView>& totals,
+                                    const std::vector<std::string>& errors) {
+    std::ostringstream out;
+    out << "competitive_report:\n";
+    out << "  composition_file: \"" << composition_file.string() << "\"\n";
+    out << "  mission_control: \"" << mission_control << "\"\n";
+    out << "  generated_at_utc: \"" << generated_at_utc << "\"\n";
+    out << "\n  results_summary:\n";
+    for (const PluginTotalsView& t : totals) {
+        out << "    - algorithm: \"" << t.name << "\"\n";
+        out << "      total_score: " << t.total_score << "\n";
+        out << "      total_steps: " << t.total_steps << "\n";
+    }
+    out << "\n  errors: [";
+    for (std::size_t i = 0; i < errors.size(); ++i) {
+        out << (i ? ", " : "") << '"' << errors[i] << '"';
+    }
+    out << "]\n";
+    writeOrThrow(file, out.str());
 }
 
 } // namespace simulator
