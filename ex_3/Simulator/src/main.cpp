@@ -1,17 +1,18 @@
 #include "Simulator/CliConfig.h"
 #include "Simulator/ConfigLoader.h"
 #include "Simulator/Registrar.h"
+#include "Simulator/ReportWriter.h"
 #include "Simulator/SharedLibrary.h"
-#include "Simulator/SimulationManager.h"
-#include "Simulator/SimulationRunFactoryImpl.h"
+#include "Simulator/Sweep.h"
 
 #include <UserCommon/ErrorLog.h>
 
 #include <algorithm>
+#include <chrono>
+#include <ctime>
 #include <exception>
 #include <filesystem>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -27,33 +28,32 @@ struct RegistrarGuard {
     ~RegistrarGuard() { simulator::Registrar::instance().clear(); }
 };
 
-// Loads one plugin and reports which factory index it contributed, so a
-// failure can be attributed to the file that caused it.
-bool loadPlugin(const std::string& path,
-                std::vector<simulator::SharedLibrary>& libraries,
-                std::string& error) {
-    simulator::SharedLibrary library(path);
-    if (!library.loaded()) {
-        error = library.error();
-        return false;
-    }
-    libraries.push_back(std::move(library));
-    return true;
+[[nodiscard]] std::string utcNow() {
+    using clock = std::chrono::system_clock;
+    const std::time_t t = clock::to_time_t(clock::now());
+    std::tm tm_utc{};
+#if defined(_WIN32)
+    gmtime_s(&tm_utc, &t);
+#else
+    gmtime_r(&t, &tm_utc);
+#endif
+    char buffer[32];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &tm_utc);
+    return buffer;
 }
 
-// First .so in a folder, in sorted order. The full comparative / competition
-// sweeps will iterate all of them; this build runs the first one.
-std::string firstSharedLibrary(const std::string& folder) {
-    std::vector<std::string> found;
+// Every .so in a folder, in sorted order so runs are reproducible.
+[[nodiscard]] std::vector<fs::path> sharedLibrariesIn(const std::string& folder) {
+    std::vector<fs::path> found;
     std::error_code ec;
     for (fs::directory_iterator it(folder, ec), end; !ec && it != end; it.increment(ec)) {
         std::error_code entry_ec;
         if (it->is_regular_file(entry_ec) && !entry_ec && it->path().extension() == ".so") {
-            found.push_back(it->path().string());
+            found.push_back(it->path());
         }
     }
     std::sort(found.begin(), found.end());
-    return found.empty() ? std::string{} : found.front();
+    return found;
 }
 
 } // namespace
@@ -71,77 +71,117 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Single-mission milestone: one algorithm against one mission control, run
-    // on the main thread. In comparative mode the algorithm is given and the
-    // mission control is the first .so in the folder; in competition mode it is
-    // the other way round. Sweeping every plugin in the folder comes next.
-    std::string algorithm_path;
-    std::string mission_control_path;
+    const bool comparative = config.mode == simulator::RunMode::Comparative;
 
-    if (config.mode == simulator::RunMode::Comparative) {
-        algorithm_path = config.algorithm;
-        mission_control_path = firstSharedLibrary(config.mission_control_folder);
-        if (mission_control_path.empty()) {
-            std::cerr << "No .so found in " << config.mission_control_folder << '\n';
-            return 1;
-        }
-    } else {
-        mission_control_path = config.mission_control;
-        algorithm_path = firstSharedLibrary(config.algorithms_folder);
-        if (algorithm_path.empty()) {
-            std::cerr << "No .so found in " << config.algorithms_folder << '\n';
-            return 1;
-        }
+    // The fixed plugin is given by a file argument; the varying ones come from
+    // the folder argument and are what the summary report ranks / groups.
+    const std::string fixed_path = comparative ? config.algorithm : config.mission_control;
+    const std::string varying_folder =
+        comparative ? config.mission_control_folder : config.algorithms_folder;
+
+    const std::filesystem::path results_dir = simulator::Sweep::makeResultsDir(
+        varying_folder, comparative ? "comparative_results" : "competition");
+    if (results_dir.empty()) {
+        std::cerr << "Could not create the results directory under " << varying_folder << '\n';
+        return 1;
     }
-
-    std::cout << "algorithm:       " << algorithm_path << '\n'
-              << "mission control: " << mission_control_path << '\n';
 
     int exit_code = 0;
     {
         std::vector<simulator::SharedLibrary> libraries;
         RegistrarGuard guard; // destroyed before `libraries` - see above
 
-        std::string error;
-        if (!loadPlugin(algorithm_path, libraries, error)) {
-            std::cerr << "Failed to load algorithm: " << error << '\n';
-            return 1;
-        }
-        if (!loadPlugin(mission_control_path, libraries, error)) {
-            std::cerr << "Failed to load mission control: " << error << '\n';
-            return 1;
-        }
-
         auto& registrar = simulator::Registrar::instance();
-        if (registrar.mappingAlgorithms().empty()) {
-            std::cerr << "No mapping algorithm registered by " << algorithm_path << '\n';
-            return 1;
+        std::vector<std::string> load_errors;
+
+        // The fixed plugin must load, otherwise there is nothing to run.
+        // The scope is to ensure the library is destroyed after the registrar
+        {
+            simulator::SharedLibrary library(fixed_path);
+            if (!library.loaded()) {
+                std::cerr << "Failed to load " << fixed_path << ": " << library.error() << '\n';
+                return 1;
+            }
+            libraries.push_back(std::move(library));
         }
-        if (registrar.missionControls().empty()) {
-            std::cerr << "No mission control registered by " << mission_control_path << '\n';
+        const bool fixed_ok = comparative ? !registrar.mappingAlgorithms().empty()
+                                          : !registrar.missionControls().empty();
+        if (!fixed_ok) {
+            std::cerr << "No factory registered by " << fixed_path << '\n';
             return 1;
         }
 
-        std::cout << "Loaded " << registrar.mappingAlgorithms().size() << " algorithm factory and "
-                  << registrar.missionControls().size() << " mission control factory\n";
+        // Every varying plugin. One that fails to load is recorded and skipped
+        // rather than aborting the whole sweep.
+        std::vector<simulator::SweepPlugin> plugins;
+        for (const fs::path& path : sharedLibrariesIn(varying_folder)) {
+            const std::size_t before = comparative ? registrar.missionControls().size()
+                                                   : registrar.mappingAlgorithms().size();
+            simulator::SharedLibrary library(path.string());
+            if (!library.loaded()) {
+                load_errors.push_back(path.filename().string());
+                std::cerr << "Skipping " << path.filename().string() << ": " << library.error()
+                          << '\n';
+                continue;
+            }
+            libraries.push_back(std::move(library));
+
+            const std::size_t after = comparative ? registrar.missionControls().size()
+                                                  : registrar.mappingAlgorithms().size();
+            if (after == before) {
+                // Loaded, but registered nothing usable.
+                load_errors.push_back(path.filename().string());
+                continue;
+            }
+
+            simulator::SweepPlugin plugin;
+            plugin.name = path.filename().string();
+            if (comparative) {
+                plugin.algorithm = registrar.mappingAlgorithms().front();
+                plugin.mission_control = registrar.missionControls()[before];
+            } else {
+                plugin.algorithm = registrar.mappingAlgorithms()[before];
+                plugin.mission_control = registrar.missionControls().front();
+            }
+            plugins.push_back(std::move(plugin));
+        }
+
+        if (plugins.empty()) {
+            std::cerr << "No usable plugin found in " << varying_folder << '\n';
+            return 1;
+        }
+
+        std::cout << "Running " << plugins.size() << " plugin(s) with "
+                  << (config.num_threads >= 2 ? config.num_threads : 1) << " thread(s)\n";
 
         try {
             const simulator::types::SimulationCompositionData composition =
                 simulator::config::loadComposition(config.simulation);
 
-            const fs::path output_path = fs::current_path();
+            simulator::Sweep sweep(
+                comparative ? simulator::SweepMode::Comparative : simulator::SweepMode::Competition,
+                std::move(plugins), composition, results_dir, config.num_threads, config.verbose);
 
-            simulator::SimulationManager manager(
-                std::make_unique<simulator::SimulationRunFactoryImpl>(
-                    registrar.mappingAlgorithms().front(),
-                    registrar.missionControls().front(),
-                    config.verbose));
+            simulator::SweepResult result = sweep.run();
+            result.errors.insert(result.errors.begin(), load_errors.begin(), load_errors.end());
 
-            const simulator::types::SimulationManagerReport report =
-                manager.run(composition, output_path);
+            std::vector<simulator::ReportWriter::PluginTotalsView> totals;
+            totals.reserve(result.totals.size());
+            for (const simulator::PluginTotals& t : result.totals) {
+                totals.push_back({t.name, t.total_score, t.total_steps});
+            }
 
-            std::cout << "Completed " << report.runs.size() << " run(s); report written to "
-                      << (output_path / "simulation_output.yaml").string() << '\n';
+            if (comparative) {
+                simulator::ReportWriter::writeComparative(
+                    results_dir / "comparative_report.yaml", composition.composition_file,
+                    varying_folder, utcNow(), totals, result.errors);
+            } else {
+                simulator::ReportWriter::writeCompetitive(
+                    results_dir / "competitive_report.yaml", composition.composition_file,
+                    fs::path(fixed_path).filename().string(), utcNow(), totals, result.errors);
+            }
+
+            std::cout << "Results written to " << results_dir.string() << '\n';
         } catch (const std::exception& ex) {
             std::cerr << "Simulation failed: " << ex.what() << '\n';
             exit_code = 1;

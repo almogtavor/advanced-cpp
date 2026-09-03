@@ -1,6 +1,7 @@
 #include <UserCommon/ErrorLog.h>
 
 #include <chrono>
+#include <mutex>
 #include <ctime>
 
 namespace user_common_323084962_212223036 {
@@ -28,6 +29,7 @@ ErrorLog::ErrorLog(const std::filesystem::path& path) {
 }
 
 void ErrorLog::open(const std::filesystem::path& path) {
+    const std::lock_guard<std::mutex> lock(mutex_);
     if (path.has_parent_path()) {
         std::error_code ec;
         std::filesystem::create_directories(path.parent_path(), ec);
@@ -40,6 +42,7 @@ void ErrorLog::open(const std::filesystem::path& path) {
 }
 
 void ErrorLog::log(const std::string& code, const std::string& message) {
+    const std::lock_guard<std::mutex> lock(mutex_);
     ++count_;
     if (out_.is_open()) {
         out_ << utcTimestamp() << " [" << code << "] " << message << '\n';
